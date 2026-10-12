@@ -1,0 +1,23 @@
+providers:
+  deepseek:
+    kind: deepseek
+    base_url: https://api.deepseek.com
+    tiers:
+      cheap:
+        model: deepseek-chat
+        input_cost_per_1k: 0.00027
+        output_cost_per_1k: 0.0011
+      strong:
+        model: deepseek-reasoner
+        input_cost_per_1k: 0.00055
+        output_cost_per_1k: 0.00219
+mock:
+  kind: mock
+
+routes:
+  classify: deepseek.cheap
+  extract: deepseek.cheap
+  summarise: deepseek.cheap
+  narrate_analysis: deepseek.strong
+  strategic_reasoning: deepseek.strong
+  verify: deepseek.strong

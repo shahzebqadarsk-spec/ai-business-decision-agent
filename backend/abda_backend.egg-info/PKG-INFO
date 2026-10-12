@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: abda-backend
+Version: 0.1.0
+Summary: AI Business Decision Agent - backend (FastAPI)
+Requires-Python: >=3.12
+Requires-Dist: fastapi>=0.115
+Requires-Dist: uvicorn[standard]>=0.32
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: alembic>=1.13
+Requires-Dist: psycopg[binary]>=3.2
+Requires-Dist: pydantic>=2.9
+Requires-Dist: pydantic-settings>=2.6
+Requires-Dist: openai>=1.54
+Requires-Dist: pandas>=2.2
+Requires-Dist: numpy>=2.0
+Requires-Dist: openpyxl>=3.1
+Requires-Dist: python-magic>=0.4.27
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: python-multipart>=0.0.12
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3; extra == "dev"
+Requires-Dist: pytest-cov>=5.0; extra == "dev"
+Requires-Dist: httpx>=0.27; extra == "dev"
+Requires-Dist: ruff>=0.7; extra == "dev"
+Requires-Dist: mypy>=1.13; extra == "dev"
+Requires-Dist: pandas-stubs; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"

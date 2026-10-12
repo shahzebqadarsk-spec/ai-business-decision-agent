@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --color-fact: #1d4ed8;
+  --color-assumption: #b45309;
+  --color-modelled: #6d28d9;
+  --color-recommendation: #047857;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900;
+}
