@@ -1,0 +1,47 @@
+databases:
+  - name: abda-db
+    plan: free
+    databaseName: abda
+    user: abda
+
+services:
+  # FastAPI backend: runs migrations on every deploy, then serves the API.
+  - type: web
+    name: abda-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: "pip install -e ."
+    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: abda-db
+          property: connectionString
+      - key: SYNTHETIC_DATA_ONLY
+        value: "true"
+      - key: CURRENCY
+        value: "PKR"
+      - key: FISCAL_YEAR_START_MONTH
+        value: "1"
+      - key: DEFAULT_COMPARISON
+        value: "YoY"
+      - key: CORS_ORIGINS
+        value: "https://abda-frontend.onrender.com"
+      - key: LLM_USE_MOCK
+        value: "true"
+
+  # React frontend: static build, talks to the backend above over HTTPS.
+  - type: web
+    name: abda-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: "https://abda-backend.onrender.com/api/v1"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
