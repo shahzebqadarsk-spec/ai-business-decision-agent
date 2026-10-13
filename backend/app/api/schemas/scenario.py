@@ -16,6 +16,7 @@ class CreateScenarioRequest(BaseModel):
     # Omit to use the latest completed forecast run for that metric automatically.
     revenue_forecast_run_id: uuid.UUID | None = None
     cogs_forecast_run_id: uuid.UUID | None = None
+    client_id: uuid.UUID | None = None
 
 
 class ScenarioResultOut(BaseModel):

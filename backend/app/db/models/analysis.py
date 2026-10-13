@@ -120,6 +120,14 @@ class Issue(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
     latest_analysis_run_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("analysis_runs.id", ondelete="SET NULL"), nullable=True
     )
+    # Phase 9: which client this issue was detected for -- denormalized here (rather than
+    # only reachable via detection_run_id) so `GET /issues` can filter by client directly,
+    # and so `analyze_issue()` can re-derive the right client scope from the issue alone
+    # without the caller having to pass it again. Nullable only for backward compatibility
+    # with pre-Phase-9 rows.
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     issue_type: Mapped[str] = enum_column(length=48)
     title: Mapped[str] = mapped_column(String(255))

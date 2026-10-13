@@ -8,12 +8,14 @@ from pydantic import BaseModel
 
 class DatasetCreate(BaseModel):
     name: str
+    client_id: UUID | None = None
 
 
 class DatasetOut(BaseModel):
     id: UUID
     name: str
     status: str
+    client_id: UUID | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

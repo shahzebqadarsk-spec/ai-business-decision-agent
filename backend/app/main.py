@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routers import decision, forecast, health, ingestion, kpi, rca, scenario
+from app.api.routers import clients, decision, forecast, health, ingestion, kpi, rca, scenario
 from app.config import get_settings
 
 
@@ -34,6 +34,7 @@ def create_app() -> FastAPI:
         return response
 
     app.include_router(health.router, prefix=settings.api_prefix)
+    app.include_router(clients.router, prefix=settings.api_prefix)
     app.include_router(ingestion.router, prefix=settings.api_prefix)
     app.include_router(ingestion.canonical_fields_router, prefix=settings.api_prefix)
     app.include_router(kpi.router, prefix=settings.api_prefix)

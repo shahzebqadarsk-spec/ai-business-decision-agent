@@ -22,22 +22,31 @@ class InvalidScenarioRequestError(ValueError):
     pass
 
 
-def _latest_completed_run(session: Session, metric: str) -> ForecastRun | None:
+def _latest_completed_run(
+    session: Session, metric: str, client_id: str | None = None
+) -> ForecastRun | None:
     """ "Use everything available" the same way Phase 5 itself does: if the caller doesn't name
-    a specific baseline run, the most recently generated completed one for that metric is it."""
-    return session.execute(
-        select(ForecastRun)
-        .where(ForecastRun.metric == metric, ForecastRun.status == "completed")
-        .order_by(ForecastRun.created_at.desc())
-        .limit(1)
-    ).scalar_one_or_none()
+    a specific baseline run, the most recently generated completed one for that metric (and, if
+    given, that client) is it."""
+    query = select(ForecastRun).where(ForecastRun.metric == metric, ForecastRun.status == "completed")
+    if client_id is not None:
+        query = query.where(ForecastRun.client_id == client_id)
+    return session.execute(query.order_by(ForecastRun.created_at.desc()).limit(1)).scalar_one_or_none()
 
 
-def _resolve_run(session: Session, metric: str, run_id: uuid.UUID | None) -> ForecastRun | None:
+def _resolve_run(
+    session: Session, metric: str, run_id: uuid.UUID | None, client_id: str | None = None
+) -> ForecastRun | None:
     if run_id is None:
-        return _latest_completed_run(session, metric)
+        return _latest_completed_run(session, metric, client_id)
     run = session.get(ForecastRun, run_id)
-    if run is None or run.metric != metric:
+    # A caller-supplied run must still belong to the same client this scenario is being built
+    # for -- otherwise a scenario could silently baseline one client's forecast against
+    # another's, the exact cross-client leak Phase 9 exists to close.
+    wrong_client = (
+        run is not None and client_id is not None and str(run.client_id) != str(client_id)
+    )
+    if run is None or run.metric != metric or wrong_client:
         raise InvalidScenarioRequestError(f"'{run_id}' is not a completed '{metric}' forecast run.")
     return run
 
@@ -94,12 +103,14 @@ def generate_scenario(
     revenue_forecast_run_id: uuid.UUID | None = None,
     cogs_forecast_run_id: uuid.UUID | None = None,
     persist: bool = True,
+    client_id: str | None = None,
 ) -> Scenario:
-    revenue_run = _resolve_run(session, "revenue", revenue_forecast_run_id)
-    cogs_run = _resolve_run(session, "cogs", cogs_forecast_run_id)
+    revenue_run = _resolve_run(session, "revenue", revenue_forecast_run_id, client_id)
+    cogs_run = _resolve_run(session, "cogs", cogs_forecast_run_id, client_id)
 
     if revenue_run is None and cogs_run is None:
         scenario = Scenario(
+            client_id=client_id,
             name=name,
             description=description,
             revenue_growth_adjustment_pct=revenue_growth_adjustment_pct,
@@ -122,6 +133,7 @@ def generate_scenario(
     all_periods = sorted(set(revenue_points) | set(cogs_points))
 
     scenario = Scenario(
+        client_id=client_id,
         name=name,
         description=description,
         revenue_growth_adjustment_pct=revenue_growth_adjustment_pct,

@@ -31,6 +31,12 @@ class Dataset(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
     source_kind: Mapped[str] = enum_column(length=32, default="upload")
     status: Mapped[str] = enum_column(length=32, default="uploaded")
     uploaded_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Phase 9: which client this dataset's data belongs to (see app/db/models/clients.py).
+    # Nullable only for backward compatibility with pre-Phase-9 rows; every dataset created
+    # through the API from here on must name a client.
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     files: Mapped[list[DatasetFile]] = relationship(back_populates="dataset", cascade="all, delete-orphan")
 

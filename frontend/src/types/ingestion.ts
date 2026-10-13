@@ -4,6 +4,7 @@ export interface Dataset {
   id: string;
   name: string;
   status: DatasetStatus;
+  client_id: string | null;
   created_at: string;
 }
 

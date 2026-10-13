@@ -1,6 +1,7 @@
 from app.db.models.analysis import AnalysisRun, Evidence, Issue
 from app.db.models.canonical import FactSales
 from app.db.models.chat import Conversation, Message
+from app.db.models.clients import Client
 from app.db.models.datasets import (
     CanonicalRecord,
     ColumnMapping,
@@ -20,6 +21,7 @@ __all__ = [
     "AnalysisRun",
     "AuditLog",
     "CanonicalRecord",
+    "Client",
     "ColumnMapping",
     "ColumnProfile",
     "Conversation",

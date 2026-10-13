@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as forecastApi from "../api/forecast";
 import * as kpiApi from "../api/kpi";
+import { useSelectedClient } from "../context/ClientContext";
 import type { ConfidenceLevel, ForecastMetric } from "../types/forecast";
 
 export function useForecastRuns(metric?: string) {
+  const { clientId } = useSelectedClient();
   return useQuery({
-    queryKey: ["forecast-runs", metric],
-    queryFn: () => forecastApi.listForecastRuns(metric),
+    queryKey: ["forecast-runs", metric, clientId],
+    queryFn: () => forecastApi.listForecastRuns(metric, clientId),
   });
 }
 
@@ -20,6 +22,7 @@ export function useForecastRun(runId: string | undefined) {
 
 export function useGenerateForecast() {
   const queryClient = useQueryClient();
+  const { clientId } = useSelectedClient();
   return useMutation({
     mutationFn: ({
       metric,
@@ -29,7 +32,7 @@ export function useGenerateForecast() {
       metric: ForecastMetric;
       horizonPeriods: number;
       confidenceLevel: ConfidenceLevel;
-    }) => forecastApi.generateForecast(metric, horizonPeriods, confidenceLevel),
+    }) => forecastApi.generateForecast(metric, horizonPeriods, confidenceLevel, clientId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["forecast-runs"] });
     },
@@ -43,15 +46,16 @@ export function useGenerateForecast() {
  * breakdown call only covers one year at a time. `startYear`/`endYear` normally come straight
  * from a ForecastRun's own history_start_period/history_end_period. */
 export function useHistoricalSeries(metric: string | undefined, startYear: number | undefined, endYear: number | undefined) {
+  const { clientId } = useSelectedClient();
   const years = startYear !== undefined && endYear !== undefined
     ? Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
     : [];
 
   return useQuery({
-    queryKey: ["historical-series", metric, startYear, endYear],
+    queryKey: ["historical-series", metric, startYear, endYear, clientId],
     queryFn: async () => {
       const perYear = await Promise.all(
-        years.map((year) => kpiApi.calculateBreakdown(metric as string, "year", String(year), "month")),
+        years.map((year) => kpiApi.calculateBreakdown(metric as string, "year", String(year), "month", clientId)),
       );
       return perYear
         .flatMap((result) => result.rows)

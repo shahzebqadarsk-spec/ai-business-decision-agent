@@ -10,12 +10,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.canonical import FactSales
 from app.kpi.models import KPIStatus
 from app.kpi.periods import PeriodWindow
+
+
+def _window_conditions(window: PeriodWindow) -> list[ColumnElement[bool]]:
+    """Same client-scoping rule as app/kpi/aggregations.py's `_period_filter` -- this module
+    builds its own raw queries rather than going through that helper, but must still respect
+    `window.client_id` so a sufficiency check never counts another client's rows."""
+    conditions: list[ColumnElement[bool]] = [FactSales.month.between(window.start_month, window.end_month)]
+    if window.client_id is not None:
+        conditions.append(FactSales.client_id == window.client_id)
+    return conditions
 
 # A single canonical table this phase actually materializes into. Extending this set is the
 # only change needed for a later phase's KPIs (procurement, payroll, inventory, ...) to stop
@@ -59,9 +69,7 @@ def check_field_sufficiency(
     the calculator is about to aggregate -- not the whole table -- so a KPI that is fine for
     2023 but missing COGS for 2025 reports `insufficient_data` only for 2025."""
     total_row_count = session.execute(
-        select(func.count())
-        .select_from(FactSales)
-        .where(FactSales.month.between(window.start_month, window.end_month))
+        select(func.count()).select_from(FactSales).where(*_window_conditions(window))
     ).scalar_one()
 
     if total_row_count < MIN_ROWS_IN_PERIOD:
@@ -78,10 +86,7 @@ def check_field_sufficiency(
         non_null_count = session.execute(
             select(func.count())
             .select_from(FactSales)
-            .where(
-                FactSales.month.between(window.start_month, window.end_month),
-                column.is_not(None),
-            )
+            .where(*_window_conditions(window), column.is_not(None))
         ).scalar_one()
         ratio = non_null_count / total_row_count
         coverage["field_coverage"][field_name] = round(ratio, 4)  # type: ignore[index]

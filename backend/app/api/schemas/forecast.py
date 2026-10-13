@@ -10,6 +10,7 @@ class GenerateForecastRequest(BaseModel):
     metric: str = Field(examples=["revenue"])
     horizon_periods: int = Field(default=6, ge=1, le=24, examples=[6])
     confidence_level: float = Field(default=0.8, examples=[0.8])
+    client_id: uuid.UUID | None = None
 
 
 class ForecastPointOut(BaseModel):

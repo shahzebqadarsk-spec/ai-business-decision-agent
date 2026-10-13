@@ -54,6 +54,7 @@ def generate_forecast(
     confidence_level: float = 0.8,
     holdout_periods: int = bt.DEFAULT_HOLDOUT_PERIODS,
     persist: bool = True,
+    client_id: str | None = None,
 ) -> ForecastRun:
     if metric not in _METRIC_COLUMNS:
         raise UnknownMetricError(
@@ -69,10 +70,11 @@ def generate_forecast(
         )
 
     column = _METRIC_COLUMNS[metric]
-    sufficiency = check_history_sufficiency(session, column)
+    sufficiency = check_history_sufficiency(session, column, client_id=client_id)
 
     if sufficiency.status != "sufficient":
         run = ForecastRun(
+            client_id=client_id,
             metric=metric,
             granularity="month",
             history_start_period="",
@@ -100,6 +102,7 @@ def generate_forecast(
     source_files = agg.source_file_ids(session, sufficiency.window)
 
     run = ForecastRun(
+        client_id=client_id,
         metric=metric,
         granularity="month",
         history_start_period=history[0][0],

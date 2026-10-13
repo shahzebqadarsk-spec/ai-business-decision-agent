@@ -8,14 +8,18 @@ export interface CreateScenarioBody {
   cogs_adjustment_pct?: number;
   revenue_forecast_run_id?: string | null;
   cogs_forecast_run_id?: string | null;
+  client_id?: string | null;
 }
 
 export function generateScenario(body: CreateScenarioBody): Promise<Scenario> {
   return apiPostJson<Scenario>("/scenarios", body);
 }
 
-export function listScenarios(): Promise<Scenario[]> {
-  return apiGet<Scenario[]>("/scenarios");
+export function listScenarios(clientId?: string | null): Promise<Scenario[]> {
+  const params = new URLSearchParams();
+  if (clientId) params.set("client_id", clientId);
+  const qs = params.toString();
+  return apiGet<Scenario[]>(`/scenarios${qs ? `?${qs}` : ""}`);
 }
 
 export function getScenario(scenarioId: string): Promise<Scenario> {

@@ -37,12 +37,16 @@ class HistorySufficiencyResult:
     window: PeriodWindow | None = None
 
 
-def check_history_sufficiency(session: Session, column: Any) -> HistorySufficiencyResult:
-    month_range = agg.full_month_range(session)
+def check_history_sufficiency(
+    session: Session, column: Any, client_id: str | None = None
+) -> HistorySufficiencyResult:
+    month_range = agg.full_month_range(session, client_id=client_id)
     if month_range is None:
         return HistorySufficiencyResult(status="insufficient_data", reason="No fact_sales rows found at all.")
     start, end = month_range
-    window = PeriodWindow(granularity="month", period_key="all", start_month=start, end_month=end)
+    window = PeriodWindow(
+        granularity="month", period_key="all", start_month=start, end_month=end, client_id=client_id
+    )
     rows = agg.sum_by_month_bucket(session, column, window)
 
     expected_months = []

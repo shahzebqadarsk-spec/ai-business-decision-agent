@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "../api/ingestion";
+import { useSelectedClient } from "../context/ClientContext";
 
 export function useDatasets() {
-  return useQuery({ queryKey: ["datasets"], queryFn: api.listDatasets });
+  const { clientId } = useSelectedClient();
+  return useQuery({ queryKey: ["datasets", clientId], queryFn: () => api.listDatasets(clientId) });
 }
 
 export function useDataset(datasetId: string | null) {
@@ -15,8 +17,9 @@ export function useDataset(datasetId: string | null) {
 
 export function useCreateDataset() {
   const queryClient = useQueryClient();
+  const { clientId } = useSelectedClient();
   return useMutation({
-    mutationFn: (name: string) => api.createDataset(name),
+    mutationFn: (name: string) => api.createDataset(name, clientId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["datasets"] });
     },

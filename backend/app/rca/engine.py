@@ -58,8 +58,9 @@ def detect_issues(
     comparison_type: str = "YoY",
     dataset_id: uuid.UUID | None = None,
     persist: bool = True,
+    client_id: str | None = None,
 ) -> AnalysisRun:
-    window = resolve_period(granularity, period_key)
+    window = resolve_period(granularity, period_key, client_id=client_id)
     comparison_window = resolve_comparison_period(window, comparison_type)
 
     run = AnalysisRun(
@@ -75,11 +76,12 @@ def detect_issues(
     session.add(run)
     session.flush()
 
-    candidates = issues.run_all_detectors(session, granularity, period_key, comparison_type)
+    candidates = issues.run_all_detectors(session, granularity, period_key, comparison_type, client_id)
     created_issue_ids: list[str] = []
     for candidate in candidates:
         issue = Issue(
             detection_run_id=run.id,
+            client_id=client_id,
             issue_type=candidate.issue_type,
             title=candidate.title,
             severity=candidate.severity,
@@ -527,8 +529,14 @@ def analyze_issue(session: Session, issue_id: uuid.UUID, *, persist: bool = True
             f"No driver-analysis decomposition registered for '{issue.issue_type}'."
         )
 
-    window = resolve_period(issue.granularity, issue.period_key)
-    comparison_window = resolve_period(issue.granularity, issue.comparison_period_key)
+    # The issue already carries the client it was detected for (set in detect_issues above);
+    # analyze_issue re-derives that scope from the issue itself rather than asking the caller
+    # to pass it again, so POST /issues/{id}/analyze needs no client_id of its own.
+    issue_client_id = str(issue.client_id) if issue.client_id is not None else None
+    window = resolve_period(issue.granularity, issue.period_key, client_id=issue_client_id)
+    comparison_window = resolve_period(
+        issue.granularity, issue.comparison_period_key, client_id=issue_client_id
+    )
 
     run = AnalysisRun(
         dataset_id=None,

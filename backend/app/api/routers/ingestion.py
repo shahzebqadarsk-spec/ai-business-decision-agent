@@ -31,11 +31,16 @@ from app.api.schemas.ingestion import (
 )
 from app.audit import record_audit
 from app.config import Settings, get_settings
+from app.db.models.clients import Client
 from app.db.models.datasets import ColumnMapping, ColumnProfile, DataQualityIssue, Dataset, DatasetFile
 from app.ingestion import mapping as mapping_module
 from app.ingestion import parsing, profiling, quality, storage, validation
 from app.ingestion.canonical_fields import CANONICAL_TABLES, field_names
-from app.ingestion.materialize import MissingRequiredFieldMappingError, materialize_fact_sales
+from app.ingestion.materialize import (
+    MissingRequiredFieldMappingError,
+    detect_dominant_currency,
+    materialize_fact_sales,
+)
 from app.llm.router import LLMRouter
 from app.llm.types import Purpose
 
@@ -133,7 +138,9 @@ def _sibling_reference_columns(
 
 @router.post("", response_model=DatasetOut, status_code=status.HTTP_201_CREATED)
 def create_dataset(body: DatasetCreate, session: Session = Depends(get_db_session)) -> Dataset:
-    dataset = Dataset(name=body.name, status="uploaded")
+    if body.client_id is not None and session.get(Client, body.client_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Client not found.")
+    dataset = Dataset(name=body.name, status="uploaded", client_id=body.client_id)
     session.add(dataset)
     session.commit()
     record_audit(
@@ -143,8 +150,13 @@ def create_dataset(body: DatasetCreate, session: Session = Depends(get_db_sessio
 
 
 @router.get("", response_model=list[DatasetOut])
-def list_datasets(session: Session = Depends(get_db_session)) -> list[Dataset]:
-    return list(session.query(Dataset).order_by(Dataset.created_at.desc()).all())
+def list_datasets(
+    client_id: UUID | None = None, session: Session = Depends(get_db_session)
+) -> list[Dataset]:
+    query = session.query(Dataset)
+    if client_id is not None:
+        query = query.filter(Dataset.client_id == client_id)
+    return list(query.order_by(Dataset.created_at.desc()).all())
 
 
 @router.get("/{dataset_id}", response_model=DatasetOut)
@@ -449,19 +461,37 @@ def materialize(
         max_rows=settings.max_upload_rows,
     )
 
+    dataset = session.get(Dataset, file_.dataset_id)
+    client = session.get(Client, dataset.client_id) if dataset is not None and dataset.client_id else None
+
+    # A client's reporting_currency is resolved exactly once, from its own first
+    # materialized upload (Phase 9) -- never from the deployment-wide CURRENCY setting,
+    # which stays only as the fallback when that very first upload gives no currency
+    # signal at all (no currency column, no detectable symbol in any money cell).
+    if client is not None:
+        if client.reporting_currency is None:
+            client.reporting_currency = (
+                detect_dominant_currency(df, confirmed_mapping) or settings.reporting_currency
+            )
+        reporting_currency = client.reporting_currency
+    else:
+        reporting_currency = settings.reporting_currency
+
     try:
         rows, result = materialize_fact_sales(
-            df, confirmed_mapping=confirmed_mapping, source_file_id=file_.id
+            df,
+            confirmed_mapping=confirmed_mapping,
+            source_file_id=file_.id,
+            client_id=dataset.client_id if dataset is not None else None,
+            reporting_currency=reporting_currency,
         )
     except MissingRequiredFieldMappingError as exc:
-        dataset = session.get(Dataset, file_.dataset_id)
         if dataset is not None:
             dataset.status = "failed"
         session.commit()
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
 
     session.add_all(rows)
-    dataset = session.get(Dataset, file_.dataset_id)
     if dataset is not None:
         dataset.status = "materialized"
     session.commit()

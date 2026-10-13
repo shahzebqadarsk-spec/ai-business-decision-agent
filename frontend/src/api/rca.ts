@@ -9,11 +9,13 @@ export function detectIssues(
   granularity: Granularity,
   periodKey: string,
   comparisonType: ComparisonType = "YoY",
+  clientId?: string | null,
 ): Promise<AnalysisRun> {
   return apiPostJson<AnalysisRun>("/issues/detect", {
     granularity,
     period_key: periodKey,
     comparison_type: comparisonType,
+    client_id: clientId ?? null,
   });
 }
 
@@ -22,12 +24,14 @@ export function listIssues(filters: {
   issueType?: string;
   granularity?: string;
   periodKey?: string;
+  clientId?: string | null;
 }): Promise<Issue[]> {
   const params = new URLSearchParams();
   if (filters.status) params.set("status_filter", filters.status);
   if (filters.issueType) params.set("issue_type", filters.issueType);
   if (filters.granularity) params.set("granularity", filters.granularity);
   if (filters.periodKey) params.set("period_key", filters.periodKey);
+  if (filters.clientId) params.set("client_id", filters.clientId);
   const qs = params.toString();
   return apiGet<Issue[]>(`/issues${qs ? `?${qs}` : ""}`);
 }

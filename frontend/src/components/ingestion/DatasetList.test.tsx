@@ -1,13 +1,16 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ClientProvider } from "../../context/ClientContext";
 import { DatasetList } from "./DatasetList";
 
 function renderWithClient() {
   const queryClient = new QueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <DatasetList selectedDatasetId={null} onSelect={() => {}} />
+      <ClientProvider>
+        <DatasetList selectedDatasetId={null} onSelect={() => {}} />
+      </ClientProvider>
     </QueryClientProvider>,
   );
 }

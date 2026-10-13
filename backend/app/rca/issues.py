@@ -50,12 +50,23 @@ class IssueCandidate:
 
 
 def _kpi_change(
-    session: Session, kpi_id: str, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    kpi_id: str,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> KPIResult | None:
     """`None` when either side of the comparison isn't `available` -- callers must treat a
     `None` result as "cannot evaluate this detector", never substitute a fabricated number."""
     result = calculate_kpi(
-        session, kpi_id, granularity, period_key, comparison_type=comparison_type, persist=False
+        session,
+        kpi_id,
+        granularity,
+        period_key,
+        comparison_type=comparison_type,
+        persist=False,
+        client_id=client_id,
     )
     if result.status is not KPIStatus.AVAILABLE or result.percentage_change_status != "ok":
         return None
@@ -63,9 +74,13 @@ def _kpi_change(
 
 
 def detect_revenue_decline(
-    session: Session, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> list[IssueCandidate]:
-    result = _kpi_change(session, "revenue", granularity, period_key, comparison_type)
+    result = _kpi_change(session, "revenue", granularity, period_key, comparison_type, client_id)
     if result is None or result.percentage_change is None or result.percentage_change >= 0:
         return []
     check = evaluate_materiality(
@@ -98,13 +113,19 @@ def detect_revenue_decline(
 
 
 def detect_revenue_growth_slowdown(
-    session: Session, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> list[IssueCandidate]:
-    current = _kpi_change(session, "revenue", granularity, period_key, comparison_type)
+    current = _kpi_change(session, "revenue", granularity, period_key, comparison_type, client_id)
     if current is None or current.percentage_change is None or current.percentage_change <= 0:
         return []  # not growing this period -- that's revenue_decline's territory, not a slowdown
     assert current.comparison_period_key is not None
-    prior = _kpi_change(session, "revenue", granularity, current.comparison_period_key, comparison_type)
+    prior = _kpi_change(
+        session, "revenue", granularity, current.comparison_period_key, comparison_type, client_id
+    )
     if prior is None or prior.percentage_change is None:
         return []
     deceleration = current.percentage_change - prior.percentage_change
@@ -139,9 +160,13 @@ def detect_revenue_growth_slowdown(
 
 
 def detect_margin_deterioration(
-    session: Session, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> list[IssueCandidate]:
-    result = _kpi_change(session, "gross_margin_pct", granularity, period_key, comparison_type)
+    result = _kpi_change(session, "gross_margin_pct", granularity, period_key, comparison_type, client_id)
     # `absolute_change` here is a percentage-POINT change in a percentage metric -- the
     # business-meaningful threshold for margin deterioration (see materiality.py's comment),
     # not the KPI engine's relative `percentage_change` of that percentage.
@@ -176,10 +201,14 @@ def detect_margin_deterioration(
 
 
 def detect_unusual_cost_movement(
-    session: Session, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> list[IssueCandidate]:
-    cogs = _kpi_change(session, "cogs", granularity, period_key, comparison_type)
-    revenue = _kpi_change(session, "revenue", granularity, period_key, comparison_type)
+    cogs = _kpi_change(session, "cogs", granularity, period_key, comparison_type, client_id)
+    revenue = _kpi_change(session, "revenue", granularity, period_key, comparison_type, client_id)
     if cogs is None or revenue is None or cogs.percentage_change is None or revenue.percentage_change is None:
         return []
     gap = cogs.percentage_change - revenue.percentage_change
@@ -214,9 +243,13 @@ def detect_unusual_cost_movement(
 
 
 def detect_unusual_volume_movement(
-    session: Session, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> list[IssueCandidate]:
-    result = _kpi_change(session, "sales_quantity", granularity, period_key, comparison_type)
+    result = _kpi_change(session, "sales_quantity", granularity, period_key, comparison_type, client_id)
     if result is None or result.percentage_change is None:
         return []
     check = evaluate_materiality("unusual_volume_movement", percentage_change_pct=result.percentage_change)
@@ -249,15 +282,23 @@ def detect_unusual_volume_movement(
 
 
 def _dimension_windows(
-    session: Session, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> tuple[PeriodWindow, PeriodWindow] | None:
-    window = resolve_period(granularity, period_key)
+    window = resolve_period(granularity, period_key, client_id=client_id)
     comparison_window = resolve_comparison_period(window, comparison_type)
     return window, comparison_window
 
 
 def detect_regional_performance_deterioration(
-    session: Session, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> list[IssueCandidate]:
     return _dimension_deterioration(
         session,
@@ -267,13 +308,18 @@ def detect_regional_performance_deterioration(
         dimension="region",
         issue_type="regional_performance_deterioration",
         metric="revenue",
+        client_id=client_id,
     )
 
 
 def detect_product_margin_deterioration(
-    session: Session, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> list[IssueCandidate]:
-    windows = _dimension_windows(session, granularity, period_key, comparison_type)
+    windows = _dimension_windows(session, granularity, period_key, comparison_type, client_id)
     if windows is None:
         return []
     window, comparison_window = windows
@@ -339,8 +385,9 @@ def _dimension_deterioration(
     dimension: str,
     issue_type: str,
     metric: str,
+    client_id: str | None = None,
 ) -> list[IssueCandidate]:
-    windows = _dimension_windows(session, granularity, period_key, comparison_type)
+    windows = _dimension_windows(session, granularity, period_key, comparison_type, client_id)
     if windows is None:
         return []
     window, comparison_window = windows
@@ -395,9 +442,13 @@ def _dimension_deterioration(
 
 
 def detect_customer_concentration_change(
-    session: Session, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> list[IssueCandidate]:
-    windows = _dimension_windows(session, granularity, period_key, comparison_type)
+    windows = _dimension_windows(session, granularity, period_key, comparison_type, client_id)
     if windows is None:
         return []
     window, comparison_window = windows
@@ -456,11 +507,15 @@ DETECTORS = (
 
 
 def run_all_detectors(
-    session: Session, granularity: str, period_key: str, comparison_type: str
+    session: Session,
+    granularity: str,
+    period_key: str,
+    comparison_type: str,
+    client_id: str | None = None,
 ) -> list[IssueCandidate]:
     candidates: list[IssueCandidate] = []
     for detector in DETECTORS:
-        candidates.extend(detector(session, granularity, period_key, comparison_type))
+        candidates.extend(detector(session, granularity, period_key, comparison_type, client_id))
     return candidates
 
 

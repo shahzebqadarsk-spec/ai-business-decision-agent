@@ -53,6 +53,12 @@ class Scenario(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
     __tablename__ = "scenarios"
     __table_args__ = (check_in("status", SCENARIO_STATUSES, constraint_name="status_valid"),)
 
+    # Phase 9: which client this scenario was built for. Nullable only for backward
+    # compatibility with pre-Phase-9 rows; `GET /scenarios` filters on this.
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 

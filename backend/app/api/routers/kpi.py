@@ -5,6 +5,8 @@ anything else that would let a caller (human or LLM) compute something outside t
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -20,6 +22,7 @@ from app.api.schemas.kpi import (
     KpiResultOut,
 )
 from app.config import Settings, get_settings
+from app.db.models.clients import Client
 from app.kpi import dashboard as dashboard_module
 from app.kpi import engine
 from app.kpi.models import DimensionBreakdownRow, KPIDefinition
@@ -27,6 +30,25 @@ from app.kpi.periods import InvalidPeriodError
 from app.kpi.registry import get_kpi_definition, list_kpi_definitions
 
 router = APIRouter(tags=["kpi"])
+
+
+def _cid(client_id: UUID | None) -> str | None:
+    """The engine layer's `client_id` params are typed `str | None` (see app/kpi/periods.py's
+    `PeriodWindow`) -- FastAPI hands this router a `uuid.UUID` instance instead, so every call
+    into the engine converts at this one boundary rather than widening every signature below
+    it just to accept a type that was never meant to flow past the API layer."""
+    return str(client_id) if client_id is not None else None
+
+
+def _client_currency(session: Session, client_id: UUID | None) -> str | None:
+    """A client's own resolved `reporting_currency` (Phase 9) -- `None` if no client was
+    named, or if that client has none resolved yet (no upload has reached it)."""
+    if client_id is None:
+        return None
+    client = session.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Client not found.")
+    return client.reporting_currency
 
 
 def _definition_out(definition: KPIDefinition) -> KpiDefinitionOut:
@@ -100,6 +122,7 @@ def get_availability(
     kpi_id: str,
     granularity: str,
     period_key: str,
+    client_id: UUID | None = None,
     session: Session = Depends(get_db_session),
     settings: Settings = Depends(get_settings),
 ) -> AvailabilityOut:
@@ -107,7 +130,12 @@ def get_availability(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Unknown KPI id '{kpi_id}'.")
     try:
         kpi_status, reason = engine.check_availability(
-            kpi_id, granularity, period_key, session, fiscal_year_start_month=settings.fiscal_year_start_month
+            kpi_id,
+            granularity,
+            period_key,
+            session,
+            fiscal_year_start_month=settings.fiscal_year_start_month,
+            client_id=_cid(client_id),
         )
     except InvalidPeriodError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -127,6 +155,7 @@ def calculate(
     session: Session = Depends(get_db_session),
     settings: Settings = Depends(get_settings),
 ) -> KpiResultOut:
+    client_currency = _client_currency(session, body.client_id)
     try:
         result = engine.calculate_kpi(
             session,
@@ -135,6 +164,8 @@ def calculate(
             body.period_key,
             comparison_type=body.comparison_type,
             fiscal_year_start_month=settings.fiscal_year_start_month,
+            client_id=_cid(body.client_id),
+            client_currency=client_currency,
         )
     except engine.UnknownKpiError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
@@ -158,6 +189,7 @@ def breakdown(
             body.period_key,
             body.dimension,
             fiscal_year_start_month=settings.fiscal_year_start_month,
+            client_id=_cid(body.client_id),
         )
     except engine.UnknownKpiError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
@@ -165,11 +197,12 @@ def breakdown(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except InvalidPeriodError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    currency = _client_currency(session, body.client_id) or definition.currency
     return BreakdownOut(
         kpi_id=definition.kpi_id,
         name=definition.name,
         unit=definition.unit.value,
-        currency=definition.currency,
+        currency=currency,
         granularity=window.granularity,
         period_key=window.period_key,
         dimension=body.dimension,
@@ -182,9 +215,11 @@ def get_dashboard(
     granularity: str = "year",
     period_key: str | None = None,
     comparison_type: str = "YoY",
+    client_id: UUID | None = None,
     session: Session = Depends(get_db_session),
     settings: Settings = Depends(get_settings),
 ) -> DashboardOut:
+    client_currency = _client_currency(session, client_id)
     try:
         payload = dashboard_module.build_dashboard(
             session,
@@ -192,6 +227,8 @@ def get_dashboard(
             period_key=period_key,
             comparison_type=comparison_type,
             fiscal_year_start_month=settings.fiscal_year_start_month,
+            client_id=_cid(client_id),
+            client_currency=client_currency,
         )
     except InvalidPeriodError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

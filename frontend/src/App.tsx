@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "./components/AppShell";
+import { ClientProvider } from "./context/ClientContext";
 import { StatusPage } from "./pages/StatusPage";
 import { ChartCheckPage } from "./pages/ChartCheckPage";
 import { IngestionPage } from "./pages/IngestionPage";
@@ -29,35 +30,37 @@ export function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppShell>
-        <nav className="mb-4 flex gap-1 border-b border-slate-200">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setView(tab.id)}
-              className={`px-3 py-1.5 text-sm ${
-                view === tab.id ? "border-b-2 border-slate-800 font-medium text-slate-900" : "text-slate-500"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+      <ClientProvider>
+        <AppShell>
+          <nav className="mb-4 flex gap-1 border-b border-slate-200">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setView(tab.id)}
+                className={`px-3 py-1.5 text-sm ${
+                  view === tab.id ? "border-b-2 border-slate-800 font-medium text-slate-900" : "text-slate-500"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
 
-        {view === "dashboard" && <DashboardPage />}
-        {view === "issues" && <DriverAnalysisPage />}
-        {view === "forecast" && <ForecastPage />}
-        {view === "scenario" && <ScenarioPage />}
-        {view === "decision" && <DecisionPage />}
-        {view === "ingestion" && <IngestionPage />}
-        {view === "system" && (
-          <div className="space-y-6">
-            <StatusPage />
-            <ChartCheckPage />
-          </div>
-        )}
-      </AppShell>
+          {view === "dashboard" && <DashboardPage />}
+          {view === "issues" && <DriverAnalysisPage />}
+          {view === "forecast" && <ForecastPage />}
+          {view === "scenario" && <ScenarioPage />}
+          {view === "decision" && <DecisionPage />}
+          {view === "ingestion" && <IngestionPage />}
+          {view === "system" && (
+            <div className="space-y-6">
+              <StatusPage />
+              <ChartCheckPage />
+            </div>
+          )}
+        </AppShell>
+      </ClientProvider>
     </QueryClientProvider>
   );
 }

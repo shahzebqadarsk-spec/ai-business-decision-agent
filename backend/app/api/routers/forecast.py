@@ -19,6 +19,11 @@ from app.forecasting import engine
 router = APIRouter(tags=["forecasting"])
 
 
+def _cid(client_id: uuid.UUID | None) -> str | None:
+    """See app/api/routers/kpi.py's `_cid` -- same str/UUID boundary conversion."""
+    return str(client_id) if client_id is not None else None
+
+
 def _forecast_evidence_id(session: Session, forecast_id: uuid.UUID) -> uuid.UUID | None:
     return session.execute(
         select(Evidence.id).where(Evidence.forecast_id == forecast_id)
@@ -84,6 +89,7 @@ def generate(body: GenerateForecastRequest, session: Session = Depends(get_db_se
             body.metric,
             body.horizon_periods,
             confidence_level=body.confidence_level,
+            client_id=_cid(body.client_id),
         )
     except engine.UnknownMetricError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -93,10 +99,16 @@ def generate(body: GenerateForecastRequest, session: Session = Depends(get_db_se
 
 
 @router.get("/forecasts/runs", response_model=list[ForecastRunOut])
-def list_runs(metric: str | None = None, session: Session = Depends(get_db_session)) -> list[ForecastRunOut]:
+def list_runs(
+    metric: str | None = None,
+    client_id: uuid.UUID | None = None,
+    session: Session = Depends(get_db_session),
+) -> list[ForecastRunOut]:
     query = select(ForecastRun)
     if metric is not None:
         query = query.where(ForecastRun.metric == metric)
+    if client_id is not None:
+        query = query.where(ForecastRun.client_id == client_id)
     query = query.order_by(ForecastRun.created_at.desc())
     runs = session.execute(query).scalars().all()
     return [_run_out(session, r) for r in runs]

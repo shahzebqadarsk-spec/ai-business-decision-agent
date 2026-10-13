@@ -17,6 +17,7 @@ from app.kpi.models import (
     KPIComputation,
     KPIDefinition,
     KPIStatus,
+    KPIUnit,
 )
 from app.kpi.periods import InvalidPeriodError, PeriodWindow, resolve_comparison_period, resolve_period
 from app.kpi.registry import get_kpi_definition
@@ -80,9 +81,13 @@ def calculate_kpi(
     comparison_type: str | None = None,
     fiscal_year_start_month: int = 1,
     persist: bool = True,
+    client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> KPIResult:
     definition = _require_definition(kpi_id)
-    window = resolve_period(granularity, period_key, fiscal_year_start_month=fiscal_year_start_month)
+    window = resolve_period(
+        granularity, period_key, fiscal_year_start_month=fiscal_year_start_month, client_id=client_id
+    )
     computation = definition.calculator(session, window)
 
     comparison_window: PeriodWindow | None = None
@@ -104,11 +109,18 @@ def calculate_kpi(
         current_value = computation.value if computation.status is KPIStatus.AVAILABLE else None
         absolute_change, percentage_change, pct_status = _change(current_value, comparison_value)
 
+    # Phase 9: a currency-unit KPI reports in the *client's* resolved reporting currency
+    # (auto-detected from that client's own uploads, see app/ingestion/materialize.py), not
+    # the deployment-wide default baked into the registry at import time -- `client_currency`
+    # overrides `definition.currency` whenever the caller resolved one.
+    use_client_currency = bool(client_currency) and definition.unit is KPIUnit.CURRENCY
+    currency = client_currency if use_client_currency else definition.currency
+
     result = KPIResult(
         kpi_id=definition.kpi_id,
         name=definition.name,
         unit=definition.unit.value,
-        currency=definition.currency,
+        currency=currency,
         granularity=granularity,
         period_key=window.period_key,
         status=computation.status,
@@ -160,13 +172,16 @@ def check_availability(
     session: Session,
     *,
     fiscal_year_start_month: int = 1,
+    client_id: str | None = None,
 ) -> tuple[KPIStatus, str | None]:
     """Cheap sufficiency check -- never runs the actual aggregation query."""
     definition = _require_definition(kpi_id)
     table_check = check_tables_implemented(definition.required_canonical_tables)
     if table_check.status is not KPIStatus.AVAILABLE:
         return table_check.status, table_check.reason
-    window = resolve_period(granularity, period_key, fiscal_year_start_month=fiscal_year_start_month)
+    window = resolve_period(
+        granularity, period_key, fiscal_year_start_month=fiscal_year_start_month, client_id=client_id
+    )
     field_check = check_field_sufficiency(session, window, definition.required_fields)
     return field_check.status, field_check.reason
 
@@ -179,6 +194,7 @@ def calculate_breakdown(
     dimension: str,
     *,
     fiscal_year_start_month: int = 1,
+    client_id: str | None = None,
 ) -> tuple[KPIDefinition, PeriodWindow, list[DimensionBreakdownRow]]:
     definition = _require_definition(kpi_id)
     if definition.breakdown is None:
@@ -188,7 +204,9 @@ def calculate_breakdown(
             f"KPI '{kpi_id}' does not support the '{dimension}' dimension. "
             f"Supported dimensions: {', '.join(definition.supported_dimensions)}."
         )
-    window = resolve_period(granularity, period_key, fiscal_year_start_month=fiscal_year_start_month)
+    window = resolve_period(
+        granularity, period_key, fiscal_year_start_month=fiscal_year_start_month, client_id=client_id
+    )
     table_check = check_tables_implemented(definition.required_canonical_tables)
     if table_check.status is not KPIStatus.AVAILABLE:
         return definition, window, []

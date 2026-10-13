@@ -23,6 +23,11 @@ from app.rca import engine
 router = APIRouter(tags=["rca"])
 
 
+def _cid(client_id: uuid.UUID | None) -> str | None:
+    """See app/api/routers/kpi.py's `_cid` -- same str/UUID boundary conversion."""
+    return str(client_id) if client_id is not None else None
+
+
 def _evidence_ids_for_issue(session: Session, issue_id: uuid.UUID) -> tuple[uuid.UUID, ...]:
     rows = session.execute(select(Evidence.id).where(Evidence.issue_id == issue_id)).scalars().all()
     return tuple(rows)
@@ -121,6 +126,7 @@ def list_issues(
     issue_type: str | None = None,
     granularity: str | None = None,
     period_key: str | None = None,
+    client_id: uuid.UUID | None = None,
     session: Session = Depends(get_db_session),
 ) -> list[IssueOut]:
     query = select(Issue)
@@ -132,6 +138,8 @@ def list_issues(
         query = query.where(Issue.granularity == granularity)
     if period_key is not None:
         query = query.where(Issue.period_key == period_key)
+    if client_id is not None:
+        query = query.where(Issue.client_id == client_id)
     query = query.order_by(Issue.created_at.desc())
     rows = session.execute(query).scalars().all()
     return [_issue_out(session, row) for row in rows]
@@ -149,7 +157,11 @@ def get_issue(issue_id: uuid.UUID, session: Session = Depends(get_db_session)) -
 def detect(body: DetectIssuesRequest, session: Session = Depends(get_db_session)) -> AnalysisRunOut:
     try:
         run = engine.detect_issues(
-            session, body.granularity, body.period_key, comparison_type=body.comparison_type
+            session,
+            body.granularity,
+            body.period_key,
+            comparison_type=body.comparison_type,
+            client_id=_cid(body.client_id),
         )
     except InvalidPeriodError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

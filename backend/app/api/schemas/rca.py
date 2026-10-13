@@ -10,6 +10,7 @@ class DetectIssuesRequest(BaseModel):
     granularity: str = Field(examples=["year"])
     period_key: str = Field(examples=["2025"])
     comparison_type: str = Field(default="YoY", examples=["YoY"])
+    client_id: uuid.UUID | None = None
 
 
 class IssueOut(BaseModel):

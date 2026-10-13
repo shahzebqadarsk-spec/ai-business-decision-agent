@@ -27,6 +27,14 @@ class FactSales(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
     )
     source_row_number: Mapped[int] = mapped_column(Integer)
 
+    # Phase 9: which client this row belongs to, denormalized here (not just reachable via
+    # source_file_id -> dataset_id) because every KPI/RCA/forecast aggregation query filters
+    # on this column directly -- see app/kpi/aggregations.py. Nullable only for backward
+    # compatibility with pre-Phase-9 rows, which a client-scoped query simply never matches.
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     # --- canonical business fields -------------------------------------------------------
     sale_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     month: Mapped[date] = mapped_column(Date)

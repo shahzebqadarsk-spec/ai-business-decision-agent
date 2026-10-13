@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as scenarioApi from "../api/scenario";
 import type { CreateScenarioBody } from "../api/scenario";
+import { useSelectedClient } from "../context/ClientContext";
 
 export function useScenarios() {
+  const { clientId } = useSelectedClient();
   return useQuery({
-    queryKey: ["scenarios"],
-    queryFn: () => scenarioApi.listScenarios(),
+    queryKey: ["scenarios", clientId],
+    queryFn: () => scenarioApi.listScenarios(clientId),
   });
 }
 
@@ -19,8 +21,9 @@ export function useScenario(scenarioId: string | undefined) {
 
 export function useGenerateScenario() {
   const queryClient = useQueryClient();
+  const { clientId } = useSelectedClient();
   return useMutation({
-    mutationFn: (body: CreateScenarioBody) => scenarioApi.generateScenario(body),
+    mutationFn: (body: CreateScenarioBody) => scenarioApi.generateScenario({ ...body, client_id: clientId }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["scenarios"] });
     },

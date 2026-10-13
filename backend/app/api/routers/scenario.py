@@ -18,6 +18,11 @@ from app.scenarios import engine
 router = APIRouter(tags=["scenarios"])
 
 
+def _cid(client_id: uuid.UUID | None) -> str | None:
+    """See app/api/routers/kpi.py's `_cid` -- same str/UUID boundary conversion."""
+    return str(client_id) if client_id is not None else None
+
+
 def _result_out(r: ScenarioResult) -> ScenarioResultOut:
     return ScenarioResultOut(
         id=r.id,
@@ -69,6 +74,7 @@ def generate(body: CreateScenarioRequest, session: Session = Depends(get_db_sess
             cogs_adjustment_pct=body.cogs_adjustment_pct,
             revenue_forecast_run_id=body.revenue_forecast_run_id,
             cogs_forecast_run_id=body.cogs_forecast_run_id,
+            client_id=_cid(body.client_id),
         )
     except engine.InvalidScenarioRequestError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -76,8 +82,13 @@ def generate(body: CreateScenarioRequest, session: Session = Depends(get_db_sess
 
 
 @router.get("/scenarios", response_model=list[ScenarioOut])
-def list_scenarios(session: Session = Depends(get_db_session)) -> list[ScenarioOut]:
-    scenarios = session.execute(select(Scenario).order_by(Scenario.created_at.desc())).scalars().all()
+def list_scenarios(
+    client_id: uuid.UUID | None = None, session: Session = Depends(get_db_session)
+) -> list[ScenarioOut]:
+    query = select(Scenario)
+    if client_id is not None:
+        query = query.where(Scenario.client_id == client_id)
+    scenarios = session.execute(query.order_by(Scenario.created_at.desc())).scalars().all()
     return [_scenario_out(session, s) for s in scenarios]
 
 

@@ -6,13 +6,13 @@ silently skipped or auto-accepted.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
 import pandas as pd
 
-from app.config import get_settings
 from app.db.models.canonical import FactSales
 from app.fx.convert import fx_rate
 from app.fx.rates import RATES_AS_OF
@@ -100,19 +100,60 @@ def _resolve_native_currency(
     return reporting_currency
 
 
+def detect_dominant_currency(df: pd.DataFrame, confirmed_mapping: dict[str, str]) -> str | None:
+    """A client's `reporting_currency` is resolved once, from its own very first upload --
+    never guessed from outside the data, and never defaulted to PKR just because that used to
+    be the only deployment-wide setting (Phase 9). This tallies the same per-row signals
+    `_resolve_native_currency` uses (a confirmed `currency` column value, else a symbol/code
+    detected in a money cell) across every row of the upload and returns whichever code is
+    most common -- or `None` if the upload gives no currency signal at all, leaving the caller
+    to fall back to the deployment's configured default for that one, signal-less case only.
+    """
+    column_for_field = {canonical: source for source, canonical in confirmed_mapping.items()}
+    currency_column = column_for_field.get("currency", "")
+    money_columns = [
+        column_for_field[field]
+        for field in ("unit_price_pkr", "net_amount_pkr", "cogs_amount_pkr")
+        if column_for_field.get(field)
+    ]
+
+    counts: Counter[str] = Counter()
+    for raw_row in df.to_dict(orient="records"):
+        if currency_column:
+            mapped_value = raw_row.get(currency_column)
+            if isinstance(mapped_value, str) and mapped_value.strip():
+                counts[mapped_value.strip().upper()] += 1
+                continue
+        for money_column in money_columns:
+            detected = detect_currency_code(raw_row.get(money_column))
+            if detected:
+                counts[detected] += 1
+                break
+
+    if not counts:
+        return None
+    return counts.most_common(1)[0][0]
+
+
 def materialize_fact_sales(
     df: pd.DataFrame,
     *,
     confirmed_mapping: dict[str, str],
     source_file_id: UUID,
+    client_id: UUID | str | None,
+    reporting_currency: str,
 ) -> tuple[list[FactSales], MaterializationResult]:
-    """`confirmed_mapping` is {source_column: canonical_field}, confirmed mappings only."""
+    """`confirmed_mapping` is {source_column: canonical_field}, confirmed mappings only.
+    `reporting_currency` is the target currency every row's money fields get converted into --
+    resolved by the caller (the client's own auto-detected currency, or the deployment default
+    for a client whose first upload gave no signal) rather than read from global settings here,
+    so two clients materializing concurrently never contend over one shared setting.
+    """
     missing = tuple(f for f in required_fields("fact_sales") if f not in confirmed_mapping.values())
     if missing:
         raise MissingRequiredFieldMappingError(missing)
 
     column_for_field = {canonical: source for source, canonical in confirmed_mapping.items()}
-    reporting_currency = get_settings().reporting_currency
 
     rows: list[FactSales] = []
     skipped = 0
@@ -143,6 +184,7 @@ def materialize_fact_sales(
             rate = fx_rate(from_currency=native_currency, to_currency=reporting_currency)
 
             fact = FactSales(
+                client_id=client_id,
                 source_file_id=source_file_id,
                 source_row_number=row_number,
                 sale_id=raw_row.get(column_for_field.get("sale_id", "")),

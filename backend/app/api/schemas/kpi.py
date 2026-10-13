@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -27,12 +28,14 @@ class CalculateRequest(BaseModel):
     granularity: str = Field(examples=["year"])
     period_key: str = Field(examples=["2024"])
     comparison_type: str | None = Field(default=None, examples=["YoY"])
+    client_id: UUID | None = None
 
 
 class BreakdownRequest(BaseModel):
     granularity: str = Field(examples=["year"])
     period_key: str = Field(examples=["2024"])
     dimension: str = Field(examples=["region"])
+    client_id: UUID | None = None
 
 
 class KpiResultOut(BaseModel):

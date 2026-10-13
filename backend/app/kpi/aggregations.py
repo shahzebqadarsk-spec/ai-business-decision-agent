@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import ColumnElement, Integer, cast, extract, func, select
+from sqlalchemy import ColumnElement, Integer, and_, cast, extract, func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.canonical import FactSales
@@ -24,7 +24,14 @@ _DIMENSION_COLUMNS: dict[str, Any] = {
 
 
 def _period_filter(window: PeriodWindow) -> ColumnElement[bool]:
-    return FactSales.month.between(window.start_month, window.end_month)
+    """Phase 9: ANDs in a `client_id` filter whenever the window carries one, so every
+    aggregation below is automatically scoped to one client's rows -- no change needed in
+    any calculator/detector/analyzer that only ever receives a `window`, not a raw
+    `client_id`. `window.client_id is None` keeps the pre-Phase-9 (unscoped) behavior."""
+    conditions: list[ColumnElement[bool]] = [FactSales.month.between(window.start_month, window.end_month)]
+    if window.client_id is not None:
+        conditions.append(FactSales.client_id == window.client_id)
+    return and_(*conditions)
 
 
 def sum_column(session: Session, column: Any, window: PeriodWindow) -> float:
@@ -144,12 +151,16 @@ def count_by_dimension(session: Session, window: PeriodWindow, dimension: str) -
     return {r[0]: int(r[1]) for r in rows}
 
 
-def full_month_range(session: Session) -> tuple[Any, Any] | None:
-    """The earliest and latest `fact_sales.month` present across the *whole* table, with no
-    period filter -- `None` (not a fabricated range) when the table is empty. Used by
+def full_month_range(session: Session, client_id: str | None = None) -> tuple[Any, Any] | None:
+    """The earliest and latest `fact_sales.month` present across the *whole* table (or, when
+    `client_id` is given, across just that client's rows), with no period filter -- `None`
+    (not a fabricated range) when there are no matching rows at all. Used by
     app/forecasting/sufficiency.py, which always forecasts from the complete available
     canonical history rather than a caller-chosen window."""
-    row = session.execute(select(func.min(FactSales.month), func.max(FactSales.month))).one()
+    query = select(func.min(FactSales.month), func.max(FactSales.month))
+    if client_id is not None:
+        query = query.where(FactSales.client_id == client_id)
+    row = session.execute(query).one()
     if row[0] is None or row[1] is None:
         return None
     return (row[0], row[1])

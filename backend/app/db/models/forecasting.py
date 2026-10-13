@@ -56,6 +56,13 @@ class ForecastRun(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
         check_in("status", FORECAST_RUN_STATUSES, constraint_name="status_valid"),
     )
 
+    # Phase 9: which client this forecast was generated for. Nullable only for backward
+    # compatibility with pre-Phase-9 rows; `GET /forecasts/runs` filters on this, and
+    # app/scenarios/engine.py uses it to pick "the latest completed run for this client".
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     metric: Mapped[str] = enum_column(length=32)
     granularity: Mapped[str] = enum_column(length=16)
     history_start_period: Mapped[str] = mapped_column(String(32))

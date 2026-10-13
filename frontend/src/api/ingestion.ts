@@ -9,12 +9,15 @@ import type {
   QualityIssue,
 } from "../types/ingestion";
 
-export function createDataset(name: string): Promise<Dataset> {
-  return apiPostJson<Dataset>("/datasets", { name });
+export function createDataset(name: string, clientId?: string | null): Promise<Dataset> {
+  return apiPostJson<Dataset>("/datasets", { name, client_id: clientId ?? null });
 }
 
-export function listDatasets(): Promise<Dataset[]> {
-  return apiGet<Dataset[]>("/datasets");
+export function listDatasets(clientId?: string | null): Promise<Dataset[]> {
+  const params = new URLSearchParams();
+  if (clientId) params.set("client_id", clientId);
+  const qs = params.toString();
+  return apiGet<Dataset[]>(`/datasets${qs ? `?${qs}` : ""}`);
 }
 
 export function getDataset(datasetId: string): Promise<Dataset> {
