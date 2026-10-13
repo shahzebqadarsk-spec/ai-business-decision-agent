@@ -3,15 +3,18 @@ import { Card } from "../components/ui/card";
 import { ScenarioChart } from "../components/scenario/ScenarioChart";
 import { useForecastRuns } from "../hooks/useForecast";
 import { useGenerateScenario, useScenarios } from "../hooks/useScenario";
-import { formatCount, formatPkr } from "../lib/format";
+import { useSystemConfig } from "../hooks/useSystemStatus";
+import { formatCount, formatCurrencyAmount } from "../lib/format";
 import { SCENARIO_METRICS } from "../types/scenario";
 import type { Scenario, ScenarioMetric } from "../types/scenario";
 
 const CURRENCY_METRICS: ScenarioMetric[] = ["revenue", "cogs", "gross_profit"];
 
-function formatMetricValue(metric: string, value: number): string {
+function formatMetricValue(metric: string, value: number, currency: string | null): string {
   if (metric === "gross_margin_pct") return `${value.toFixed(1)}%`;
-  return CURRENCY_METRICS.includes(metric as ScenarioMetric) ? formatPkr(value) : formatCount(value);
+  return CURRENCY_METRICS.includes(metric as ScenarioMetric)
+    ? formatCurrencyAmount(value, currency)
+    : formatCount(value);
 }
 
 export function ScenarioPage() {
@@ -27,6 +30,8 @@ export function ScenarioPage() {
   const cogsRunsQuery = useForecastRuns("cogs");
   const scenariosQuery = useScenarios();
   const generateMutation = useGenerateScenario();
+  const systemConfigQuery = useSystemConfig();
+  const currency = systemConfigQuery.data?.currency ?? null;
 
   const scenario = activeScenario ?? scenariosQuery.data?.[0] ?? null;
 
@@ -196,7 +201,7 @@ export function ScenarioPage() {
             </p>
           </Card>
 
-          <ScenarioChart metric={chartMetric} results={scenario.results} />
+          <ScenarioChart metric={chartMetric} results={scenario.results} currency={currency} />
 
           <Card className="overflow-x-auto">
             <p className="mb-2 text-sm font-semibold text-slate-600">All results</p>
@@ -216,9 +221,11 @@ export function ScenarioPage() {
                     <td className="py-1 pr-3 text-slate-700">{r.metric}</td>
                     <td className="py-1 pr-3 text-slate-700">{r.period_key}</td>
                     <td className="py-1 pr-3 text-slate-500">
-                      {r.baseline_value !== null ? formatMetricValue(r.metric, r.baseline_value) : "—"}
+                      {r.baseline_value !== null ? formatMetricValue(r.metric, r.baseline_value, currency) : "—"}
                     </td>
-                    <td className="py-1 pr-3 text-slate-700">{formatMetricValue(r.metric, r.scenario_value)}</td>
+                    <td className="py-1 pr-3 text-slate-700">
+                      {formatMetricValue(r.metric, r.scenario_value, currency)}
+                    </td>
                     <td className="py-1 text-slate-500">
                       {r.delta_percentage !== null ? `${r.delta_percentage > 0 ? "+" : ""}${r.delta_percentage.toFixed(1)}%` : "—"}
                     </td>

@@ -4,8 +4,9 @@ import { Badge } from "../ui/badge";
 import { SeverityBadge } from "./SeverityBadge";
 import { ContributionBarChart } from "./ContributionBarChart";
 import { WaterfallChart } from "./WaterfallChart";
-import { formatCount, formatPercentValue, formatPkr, formatSigned } from "../../lib/format";
+import { formatCount, formatCurrencyAmount, formatPercentValue, formatSigned } from "../../lib/format";
 import { useAnalyzeIssue } from "../../hooks/useRca";
+import { useSystemConfig } from "../../hooks/useSystemStatus";
 import type { ContributionBreakdownPayload, GrossProfitPayload, Issue, VolumePriceEffectPayload } from "../../types/rca";
 
 const SECTION_LABELS: Record<string, string> = {
@@ -36,8 +37,12 @@ function unitForKey(key: string): "currency" | "percentage" | "quantity" | "plai
   return "plain";
 }
 
-function formatByUnit(value: number, unit: ReturnType<typeof unitForKey>): string {
-  if (unit === "currency") return formatPkr(value);
+function formatByUnit(
+  value: number,
+  unit: ReturnType<typeof unitForKey>,
+  currency: string | null,
+): string {
+  if (unit === "currency") return formatCurrencyAmount(value, currency);
   if (unit === "percentage") return formatPercentValue(value);
   if (unit === "quantity") return formatCount(value);
   return value.toFixed(2);
@@ -53,6 +58,7 @@ function FactPairRow({
   prior,
   evidenceId,
   unit,
+  currency,
   onSelectEvidence,
 }: {
   label: string;
@@ -60,14 +66,17 @@ function FactPairRow({
   prior: number | null;
   evidenceId: string | undefined;
   unit: ReturnType<typeof unitForKey>;
+  currency: string | null;
   onSelectEvidence: (id: string) => void;
 }) {
   return (
     <tr className="border-b border-slate-100 last:border-0">
       <td className="py-1.5 text-slate-500">{label}</td>
-      <td className="py-1.5 text-right text-slate-700">{prior !== null ? formatByUnit(prior, unit) : "—"}</td>
+      <td className="py-1.5 text-right text-slate-700">
+        {prior !== null ? formatByUnit(prior, unit, currency) : "—"}
+      </td>
       <td className="py-1.5 text-right font-medium text-slate-900">
-        {current !== null ? formatByUnit(current, unit) : "—"}
+        {current !== null ? formatByUnit(current, unit, currency) : "—"}
       </td>
       <td className="py-1.5 text-right">
         {evidenceId && (
@@ -84,7 +93,12 @@ function FactPairRow({
   );
 }
 
-function renderSection(key: string, value: unknown, onSelectEvidence: (id: string) => void): ReactNode {
+function renderSection(
+  key: string,
+  value: unknown,
+  onSelectEvidence: (id: string) => void,
+  currency: string | null,
+): ReactNode {
   if (value === null || value === undefined || SKIP_KEYS.has(key)) return null;
 
   if (typeof value === "string") {
@@ -99,7 +113,7 @@ function renderSection(key: string, value: unknown, onSelectEvidence: (id: strin
     return (
       <p key={key} className="text-sm text-slate-500">
         <span className="font-medium text-slate-700">{titleCase(key)}:</span>{" "}
-        {formatByUnit(value, unitForKey(key))}
+        {formatByUnit(value, unitForKey(key), currency)}
       </p>
     );
   }
@@ -113,6 +127,7 @@ function renderSection(key: string, value: unknown, onSelectEvidence: (id: strin
         key={key}
         title={titleCase(key)}
         breakdown={obj as unknown as ContributionBreakdownPayload}
+        currency={currency}
         onSelectEvidence={onSelectEvidence}
       />
     );
@@ -130,6 +145,7 @@ function renderSection(key: string, value: unknown, onSelectEvidence: (id: strin
         ]}
         total={vp.total_change}
         totalLabel="Revenue change"
+        currency={currency}
         onSelectEvidence={onSelectEvidence}
       />
     );
@@ -147,6 +163,7 @@ function renderSection(key: string, value: unknown, onSelectEvidence: (id: strin
         ]}
         total={gp.total_change}
         totalLabel="Gross profit change"
+        currency={currency}
         onSelectEvidence={onSelectEvidence}
       />
     );
@@ -164,6 +181,7 @@ function renderSection(key: string, value: unknown, onSelectEvidence: (id: strin
               prior={obj.prior as number | null}
               evidenceId={obj.evidence_id as string}
               unit={unitForKey(key)}
+              currency={currency}
               onSelectEvidence={onSelectEvidence}
             />
           </tbody>
@@ -183,6 +201,8 @@ export function IssueDetail({
   onSelectEvidence: (evidenceId: string) => void;
 }) {
   const analyzeMutation = useAnalyzeIssue();
+  const systemConfigQuery = useSystemConfig();
+  const currency = systemConfigQuery.data?.currency ?? null;
 
   const changeDirection =
     issue.percentage_change === null ? null : issue.percentage_change >= 0 ? "up" : "down";
@@ -206,20 +226,24 @@ export function IssueDetail({
           <div>
             <p className="text-xs text-slate-400">Prior</p>
             <p className="text-sm font-medium text-slate-700">
-              {issue.prior_value !== null ? formatByUnit(issue.prior_value, unitForKey(issue.metric)) : "—"}
+              {issue.prior_value !== null
+                ? formatByUnit(issue.prior_value, unitForKey(issue.metric), currency)
+                : "—"}
             </p>
           </div>
           <div>
             <p className="text-xs text-slate-400">Current</p>
             <p className="text-sm font-medium text-slate-900">
-              {issue.current_value !== null ? formatByUnit(issue.current_value, unitForKey(issue.metric)) : "—"}
+              {issue.current_value !== null
+                ? formatByUnit(issue.current_value, unitForKey(issue.metric), currency)
+                : "—"}
             </p>
           </div>
           <div>
             <p className="text-xs text-slate-400">Absolute change</p>
             <p className={`text-sm font-medium ${changeColor}`}>
               {issue.absolute_change !== null
-                ? formatSigned(issue.absolute_change, (v) => formatByUnit(v, unitForKey(issue.metric)))
+                ? formatSigned(issue.absolute_change, (v) => formatByUnit(v, unitForKey(issue.metric), currency))
                 : "—"}
             </p>
           </div>
@@ -277,7 +301,9 @@ export function IssueDetail({
               Click any bar or value to see the Evidence record behind it.
             </p>
           </Card>
-          {Object.entries(issue.decomposition).map(([key, value]) => renderSection(key, value, onSelectEvidence))}
+          {Object.entries(issue.decomposition).map(([key, value]) =>
+            renderSection(key, value, onSelectEvidence, currency),
+          )}
         </div>
       )}
     </div>

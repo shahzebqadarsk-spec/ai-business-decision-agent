@@ -1,5 +1,6 @@
 import { Card } from "../ui/card";
-import { formatPkr } from "../../lib/format";
+import { formatCurrencyAmount } from "../../lib/format";
+import { useSystemConfig } from "../../hooks/useSystemStatus";
 import type { DimensionBreakdownRow } from "../../types/kpi";
 
 export function CustomerTable({
@@ -9,6 +10,8 @@ export function CustomerTable({
   title: string;
   rows: DimensionBreakdownRow[];
 }) {
+  const systemConfigQuery = useSystemConfig();
+  const currency = systemConfigQuery.data?.currency ?? null;
   return (
     <Card>
       <h3 className="mb-2 text-sm font-semibold text-slate-500">{title}</h3>
@@ -21,7 +24,7 @@ export function CustomerTable({
               <tr key={row.dimension_value} className="border-b border-slate-100 last:border-0">
                 <td className="py-1.5 text-slate-700">{row.dimension_value ?? "(unknown)"}</td>
                 <td className="py-1.5 text-right font-medium text-slate-900">
-                  {row.value !== null ? formatPkr(row.value) : "—"}
+                  {row.value !== null ? formatCurrencyAmount(row.value, currency) : "—"}
                 </td>
               </tr>
             ))}

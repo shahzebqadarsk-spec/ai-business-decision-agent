@@ -1,20 +1,30 @@
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card } from "../ui/card";
-import { formatCount, formatPkr } from "../../lib/format";
+import { formatCount, formatCurrencyAmount } from "../../lib/format";
 import type { ScenarioMetric, ScenarioResult } from "../../types/scenario";
 
 const CURRENCY_METRICS: ScenarioMetric[] = ["revenue", "cogs", "gross_profit"];
 
-function valueFormatter(metric: string): (v: number) => string {
+function valueFormatter(metric: string, currency: string | null): (v: number) => string {
   if (metric === "gross_margin_pct") return (v) => `${v.toFixed(1)}%`;
-  return CURRENCY_METRICS.includes(metric as ScenarioMetric) ? formatPkr : formatCount;
+  return CURRENCY_METRICS.includes(metric as ScenarioMetric)
+    ? (v: number) => formatCurrencyAmount(v, currency)
+    : formatCount;
 }
 
 /** Baseline (the unadjusted Phase 5 forecast) vs. scenario (the same periods after applying
  * the requested percentage shock) for one metric, period by period -- unlike `ForecastChart`,
  * there is no confidence band here: a scenario is a deliberate, deterministic hypothetical the
  * user constructed, not a statistically fitted estimate, so there is no interval to draw. */
-export function ScenarioChart({ metric, results }: { metric: string; results: ScenarioResult[] }) {
+export function ScenarioChart({
+  metric,
+  results,
+  currency,
+}: {
+  metric: string;
+  results: ScenarioResult[];
+  currency?: string | null;
+}) {
   const rows = results
     .filter((r) => r.metric === metric)
     .sort((a, b) => a.horizon_index - b.horizon_index)
@@ -23,7 +33,7 @@ export function ScenarioChart({ metric, results }: { metric: string; results: Sc
       baseline: r.baseline_value,
       scenario: r.scenario_value,
     }));
-  const fmt = valueFormatter(metric);
+  const fmt = valueFormatter(metric, currency ?? null);
 
   if (rows.length === 0) {
     return (

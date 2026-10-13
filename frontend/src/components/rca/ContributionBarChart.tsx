@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card } from "../ui/card";
-import { formatPkr, formatSigned } from "../../lib/format";
+import { formatCurrencyAmount, formatSigned } from "../../lib/format";
 import type { ContributionBreakdownPayload } from "../../types/rca";
 
 const POSITIVE = "#059669";
@@ -19,12 +19,15 @@ function colorFor(direction: string): string {
 export function ContributionBarChart({
   title,
   breakdown,
+  currency,
   onSelectEvidence,
 }: {
   title: string;
   breakdown: ContributionBreakdownPayload;
+  currency?: string | null;
   onSelectEvidence: (evidenceId: string) => void;
 }) {
+  const fmt = (v: number) => formatCurrencyAmount(v, currency);
   const data = breakdown.rows.map((row) => ({
     label: row.is_other_bucket ? `Other (${row.other_bucket_count})` : row.dimension_value ?? "(unknown)",
     value: row.absolute_contribution,
@@ -42,16 +45,16 @@ export function ContributionBarChart({
       </div>
       {breakdown.residual_is_material && (
         <p className="mb-2 text-xs font-medium text-amber-600">
-          Material unexplained residual: {formatPkr(breakdown.residual_absolute)}
+          Material unexplained residual: {fmt(breakdown.residual_absolute)}
         </p>
       )}
       <ResponsiveContainer width="100%" height={Math.max(160, data.length * 30)}>
         <BarChart data={data} layout="vertical" margin={{ left: 24, right: 16, top: 4, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-          <XAxis type="number" tickFormatter={(v: number) => formatSigned(v, formatPkr)} fontSize={11} />
+          <XAxis type="number" tickFormatter={(v: number) => formatSigned(v, fmt)} fontSize={11} />
           <YAxis type="category" dataKey="label" width={80} fontSize={12} />
           <Tooltip
-            formatter={(v: number) => formatSigned(v, formatPkr)}
+            formatter={(v: number) => formatSigned(v, fmt)}
             labelFormatter={(label: string) => label}
           />
           <Bar

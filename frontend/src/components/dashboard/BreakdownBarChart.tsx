@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card } from "../ui/card";
-import { formatPkr } from "../../lib/format";
+import { formatCurrencyAmount } from "../../lib/format";
+import { useSystemConfig } from "../../hooks/useSystemStatus";
 import type { DimensionBreakdownRow } from "../../types/kpi";
 
 export function BreakdownBarChart({
@@ -10,6 +11,9 @@ export function BreakdownBarChart({
   title: string;
   rows: DimensionBreakdownRow[];
 }) {
+  const systemConfigQuery = useSystemConfig();
+  const currency = systemConfigQuery.data?.currency ?? null;
+  const fmt = (v: number) => formatCurrencyAmount(v, currency);
   const data = rows
     .filter((r) => r.value !== null)
     .map((r) => ({ label: r.dimension_value ?? "(unknown)", value: r.value as number }));
@@ -29,9 +33,9 @@ export function BreakdownBarChart({
       <ResponsiveContainer width="100%" height={Math.max(180, data.length * 32)}>
         <BarChart data={data} layout="vertical" margin={{ left: 24, right: 16, top: 4, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-          <XAxis type="number" tickFormatter={(v: number) => formatPkr(v)} fontSize={11} />
+          <XAxis type="number" tickFormatter={(v: number) => fmt(v)} fontSize={11} />
           <YAxis type="category" dataKey="label" width={70} fontSize={12} />
-          <Tooltip formatter={(v: number) => formatPkr(v)} />
+          <Tooltip formatter={(v: number) => fmt(v)} />
           <Bar dataKey="value" fill="#1d4ed8" radius={[0, 3, 3, 0]} />
         </BarChart>
       </ResponsiveContainer>

@@ -3,21 +3,24 @@ import { Card } from "../components/ui/card";
 import { ForecastChart } from "../components/forecast/ForecastChart";
 import { EvidenceDrawer } from "../components/evidence/EvidenceDrawer";
 import { useForecastRuns, useGenerateForecast, useHistoricalSeries } from "../hooks/useForecast";
-import { formatCount, formatPkr } from "../lib/format";
+import { useSystemConfig } from "../hooks/useSystemStatus";
+import { formatCount, formatCurrencyAmount } from "../lib/format";
 import { CONFIDENCE_LEVELS, FORECAST_METRICS } from "../types/forecast";
 import type { ConfidenceLevel, ForecastMetric, ForecastRun } from "../types/forecast";
 
 const CURRENCY_METRICS: ForecastMetric[] = ["revenue", "cogs"];
 
-function formatMetricValue(metric: string, value: number): string {
-  return CURRENCY_METRICS.includes(metric as ForecastMetric) ? formatPkr(value) : formatCount(value);
+function formatMetricValue(metric: string, value: number, currency: string | null): string {
+  return CURRENCY_METRICS.includes(metric as ForecastMetric)
+    ? formatCurrencyAmount(value, currency)
+    : formatCount(value);
 }
 
 function parsePeriodYear(periodKey: string): number {
   return Number(periodKey.slice(0, 4));
 }
 
-function RunDiagnostics({ run }: { run: ForecastRun }) {
+function RunDiagnostics({ run, currency }: { run: ForecastRun; currency: string | null }) {
   return (
     <Card className="space-y-1 text-xs">
       <p className="mb-1 font-semibold text-slate-500">Fit diagnostics</p>
@@ -39,7 +42,7 @@ function RunDiagnostics({ run }: { run: ForecastRun }) {
             Holdout backtest ({run.holdout_periods} months withheld)
           </span>
           <span className="text-slate-700">
-            MAE {formatMetricValue(run.metric, run.holdout_mae ?? 0)}
+            MAE {formatMetricValue(run.metric, run.holdout_mae ?? 0, currency)}
             {run.holdout_mape_pct !== null ? `, MAPE ${run.holdout_mape_pct.toFixed(1)}%` : ""}
           </span>
         </p>
@@ -61,6 +64,8 @@ export function ForecastPage() {
 
   const runsQuery = useForecastRuns(metric);
   const generateMutation = useGenerateForecast();
+  const systemConfigQuery = useSystemConfig();
+  const currency = systemConfigQuery.data?.currency ?? null;
 
   const run = activeRun ?? runsQuery.data?.[0] ?? null;
   const historicalQuery = useHistoricalSeries(
@@ -183,6 +188,7 @@ export function ForecastPage() {
             confidenceLevel={run.confidence_level}
             historical={historicalQuery.data ?? []}
             forecasts={run.forecasts}
+            currency={currency}
             onSelectEvidence={setSelectedEvidenceId}
           />
 
@@ -205,11 +211,11 @@ export function ForecastPage() {
                     <tr key={f.id} className="border-t border-slate-100">
                       <td className="py-1 pr-3 text-slate-700">{f.period_key}</td>
                       <td className="py-1 pr-3 text-slate-700">
-                        {formatMetricValue(run.metric, f.point_estimate)}
+                        {formatMetricValue(run.metric, f.point_estimate, currency)}
                       </td>
                       <td className="py-1 pr-3 text-slate-500">
                         {f.lower_bound !== null && f.upper_bound !== null
-                          ? `${formatMetricValue(run.metric, f.lower_bound)} - ${formatMetricValue(run.metric, f.upper_bound)}`
+                          ? `${formatMetricValue(run.metric, f.lower_bound, currency)} - ${formatMetricValue(run.metric, f.upper_bound, currency)}`
                           : "—"}
                       </td>
                       <td className="py-1">
@@ -230,7 +236,7 @@ export function ForecastPage() {
             </Card>
 
             <div className="space-y-3">
-              <RunDiagnostics run={run} />
+              <RunDiagnostics run={run} currency={currency} />
               {run.fit_evidence_id && (
                 <button
                   type="button"

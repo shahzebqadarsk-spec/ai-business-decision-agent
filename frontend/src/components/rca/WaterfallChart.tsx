@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card } from "../ui/card";
-import { formatPkr, formatSigned } from "../../lib/format";
+import { formatCurrencyAmount, formatSigned } from "../../lib/format";
 
 const POSITIVE = "#059669";
 const NEGATIVE = "#dc2626";
@@ -49,9 +49,11 @@ function buildBars(steps: WaterfallStep[], total: number, totalLabel: string): W
 function WaterfallTooltip({
   active,
   payload,
+  currency,
 }: {
   active?: boolean;
   payload?: Array<{ payload: WaterfallBar }>;
+  currency?: string | null;
 }) {
   if (!active || !payload || payload.length === 0) return null;
   const item = payload[0]?.payload;
@@ -59,7 +61,7 @@ function WaterfallTooltip({
   return (
     <div className="rounded border border-slate-200 bg-white px-2 py-1 text-xs shadow-sm">
       <p className="font-medium text-slate-700">{item.label}</p>
-      <p className="text-slate-500">{formatSigned(item.value, formatPkr)}</p>
+      <p className="text-slate-500">{formatSigned(item.value, (v) => formatCurrencyAmount(v, currency))}</p>
     </div>
   );
 }
@@ -73,15 +75,18 @@ export function WaterfallChart({
   steps,
   total,
   totalLabel = "Total change",
+  currency,
   onSelectEvidence,
 }: {
   title: string;
   steps: WaterfallStep[];
   total: number;
   totalLabel?: string;
+  currency?: string | null;
   onSelectEvidence?: (evidenceId: string) => void;
 }) {
   const bars = buildBars(steps, total, totalLabel);
+  const fmt = (v: number) => formatCurrencyAmount(v, currency);
 
   return (
     <Card>
@@ -89,9 +94,9 @@ export function WaterfallChart({
       <ResponsiveContainer width="100%" height={Math.max(160, bars.length * 44)}>
         <BarChart data={bars} layout="vertical" margin={{ left: 24, right: 16, top: 4, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-          <XAxis type="number" tickFormatter={(v: number) => formatSigned(v, formatPkr)} fontSize={11} />
+          <XAxis type="number" tickFormatter={(v: number) => formatSigned(v, fmt)} fontSize={11} />
           <YAxis type="category" dataKey="label" width={100} fontSize={12} />
-          <Tooltip content={<WaterfallTooltip />} />
+          <Tooltip content={<WaterfallTooltip currency={currency} />} />
           <Bar dataKey="base" stackId="wf" fill="transparent" isAnimationActive={false} />
           <Bar
             dataKey="size"

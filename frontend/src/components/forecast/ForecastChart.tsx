@@ -10,7 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { Card } from "../ui/card";
-import { formatCount, formatPkr } from "../../lib/format";
+import { formatCount, formatCurrencyAmount } from "../../lib/format";
 import type { ForecastMetric, ForecastPoint } from "../../types/forecast";
 
 interface HistoricalRow {
@@ -28,8 +28,10 @@ interface ChartRow {
 
 const CURRENCY_METRICS: ForecastMetric[] = ["revenue", "cogs"];
 
-function valueFormatter(metric: string): (v: number) => string {
-  return CURRENCY_METRICS.includes(metric as ForecastMetric) ? formatPkr : formatCount;
+function valueFormatter(metric: string, currency: string | null): (v: number) => string {
+  return CURRENCY_METRICS.includes(metric as ForecastMetric)
+    ? (v: number) => formatCurrencyAmount(v, currency)
+    : formatCount;
 }
 
 function buildRows(historical: HistoricalRow[], forecasts: ForecastPoint[]): ChartRow[] {
@@ -72,16 +74,18 @@ export function ForecastChart({
   confidenceLevel,
   historical,
   forecasts,
+  currency,
   onSelectEvidence,
 }: {
   metric: string;
   confidenceLevel: number;
   historical: HistoricalRow[];
   forecasts: ForecastPoint[];
+  currency?: string | null;
   onSelectEvidence?: (evidenceId: string) => void;
 }) {
   const rows = buildRows(historical, forecasts);
-  const fmt = valueFormatter(metric);
+  const fmt = valueFormatter(metric, currency ?? null);
 
   if (rows.length === 0) {
     return (

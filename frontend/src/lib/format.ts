@@ -6,6 +6,24 @@ export function formatPkr(amount: number): string {
   }).format(amount);
 }
 
+/** Formats an amount in whatever currency the deployment's reporting currency
+ * actually is (e.g. "USD", "AED"), instead of assuming PKR. Falls back to a
+ * plain PKR format if a currency code isn't available yet (e.g. while the
+ * /system/config request is still loading). */
+export function formatCurrencyAmount(amount: number, currencyCode: string | null | undefined): string {
+  if (!currencyCode) return formatPkr(amount);
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currencyCode,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    // Unknown/invalid ISO code -- don't crash the page over a display format.
+    return formatPkr(amount);
+  }
+}
+
 export function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
@@ -21,7 +39,7 @@ export function formatCount(value: number): string {
 export function formatKpiValue(value: number, unit: string, currency: string | null): string {
   switch (unit) {
     case "currency":
-      return currency ? formatPkr(value) : formatCount(value);
+      return currency ? formatCurrencyAmount(value, currency) : formatCount(value);
     case "percentage":
       return formatPercentValue(value);
     case "count":
