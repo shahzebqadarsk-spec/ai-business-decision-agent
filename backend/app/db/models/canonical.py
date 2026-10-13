@@ -45,21 +45,25 @@ class FactSales(Base, UUIDPrimaryKeyMixin, CreatedAtMixin):
     product_id: Mapped[str] = mapped_column(String(64), index=True)
     category_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     quantity: Mapped[float] = mapped_column(Numeric(18, 4))
-    unit_price_pkr: Mapped[float] = mapped_column(Numeric(18, 4))
-    gross_amount_pkr: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
-    net_amount_pkr: Mapped[float] = mapped_column(Numeric(18, 4))
-    cogs_amount_pkr: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    # Phase 9.1: these were named *_pkr back when the system only ever supported PKR;
+    # renamed to drop that suffix now that multi-currency/multi-client is real (see
+    # docs/DECISIONS.md) -- the value was never actually forced into PKR, only the label
+    # implied it. `currency` below is what actually says what currency a row's raw amounts
+    # are in.
+    unit_price: Mapped[float] = mapped_column(Numeric(18, 4))
+    gross_amount: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    net_amount: Mapped[float] = mapped_column(Numeric(18, 4))
+    cogs_amount: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
     gross_margin_pct: Mapped[float | None] = mapped_column(Numeric(8, 4), nullable=True)
     discount_pct: Mapped[float | None] = mapped_column(Numeric(8, 4), nullable=True)
     payment_terms: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    # ISO 4217 code for the currency the _pkr-suffixed amounts above are actually in for
-    # this row (despite the column names -- see docs/DECISIONS.md phase 8). Populated by
-    # materialize.py for every new row: from a confirmed `currency` mapping, else detected
-    # from the price text itself, else the deployment's configured default currency.
+    # ISO 4217 code for the currency the raw amounts above are actually in for this row.
+    # Populated by materialize.py for every new row: from a confirmed `currency` mapping,
+    # else detected from the price text itself, else the deployment's configured default.
     currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
 
     # --- reporting-currency equivalents (Phase 8: multi-currency support) ----------------
-    # Every KPI/RCA/forecast calculation aggregates on these, never on the _pkr fields
+    # Every KPI/RCA/forecast calculation aggregates on these, never on the raw columns
     # above directly -- that's what makes mixing PKR and USD rows in one dataset safe to
     # sum. NULL on rows materialized before Phase 8 (purely additive migration).
     unit_price_reporting: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)

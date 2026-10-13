@@ -18,7 +18,7 @@ from typing import Any
 import pandas as pd
 
 _OUTLIER_IQR_MULTIPLIER = 3.0
-_NUMERIC_COLUMNS_THAT_MUST_BE_POSITIVE = ("quantity", "unit_price_pkr", "net_amount_pkr", "gross_amount_pkr")
+_NUMERIC_COLUMNS_THAT_MUST_BE_POSITIVE = ("quantity", "unit_price", "net_amount", "gross_amount")
 _CATEGORICAL_CASE_VARIANT_COLUMNS = ("payment_terms",)
 
 
@@ -218,9 +218,9 @@ def run_quality_checks(
     date_columns: tuple[str, ...] = ("order_date", "invoice_date", "due_date", "month"),
     measure_columns: tuple[str, ...] = (
         "quantity",
-        "unit_price_pkr",
-        "net_amount_pkr",
-        "gross_amount_pkr",
+        "unit_price",
+        "net_amount",
+        "gross_amount",
     ),
     known_ids_by_column: dict[str, set[str]] | None = None,
     reference_columns: tuple[str, ...] | None = None,

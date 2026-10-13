@@ -22,10 +22,10 @@ from app.ingestion.numeric_format import clean_numeric_string, detect_currency_c
 _DATE_FIELDS = ("month", "order_date", "invoice_date")
 _NUMERIC_FIELDS = (
     "quantity",
-    "unit_price_pkr",
-    "gross_amount_pkr",
-    "net_amount_pkr",
-    "cogs_amount_pkr",
+    "unit_price",
+    "gross_amount",
+    "net_amount",
+    "cogs_amount",
     "gross_margin_pct",
     "discount_pct",
 )
@@ -89,7 +89,7 @@ def _resolve_native_currency(
         if isinstance(mapped_value, str) and mapped_value.strip():
             return mapped_value.strip().upper()
 
-    for money_field in ("unit_price_pkr", "net_amount_pkr", "cogs_amount_pkr"):
+    for money_field in ("unit_price", "net_amount", "cogs_amount"):
         money_column = column_for_field.get(money_field, "")
         if not money_column:
             continue
@@ -113,7 +113,7 @@ def detect_dominant_currency(df: pd.DataFrame, confirmed_mapping: dict[str, str]
     currency_column = column_for_field.get("currency", "")
     money_columns = [
         column_for_field[field]
-        for field in ("unit_price_pkr", "net_amount_pkr", "cogs_amount_pkr")
+        for field in ("unit_price", "net_amount", "cogs_amount")
         if column_for_field.get(field)
     ]
 
@@ -165,9 +165,9 @@ def materialize_fact_sales(
             customer_id = raw_row.get(column_for_field.get("customer_id", ""))
             product_id = raw_row.get(column_for_field.get("product_id", ""))
             quantity = _coerce_numeric(raw_row.get(column_for_field.get("quantity", "")))
-            unit_price = _coerce_numeric(raw_row.get(column_for_field.get("unit_price_pkr", "")))
-            net_amount = _coerce_numeric(raw_row.get(column_for_field.get("net_amount_pkr", "")))
-            cogs_amount = _coerce_numeric(raw_row.get(column_for_field.get("cogs_amount_pkr", "")))
+            unit_price = _coerce_numeric(raw_row.get(column_for_field.get("unit_price", "")))
+            net_amount = _coerce_numeric(raw_row.get(column_for_field.get("net_amount", "")))
+            cogs_amount = _coerce_numeric(raw_row.get(column_for_field.get("cogs_amount", "")))
 
             if month is None or not customer_id or not product_id:
                 raise ValueError("missing a required field value")
@@ -196,10 +196,10 @@ def materialize_fact_sales(
                 product_id=str(product_id),
                 category_id=raw_row.get(column_for_field.get("category_id", "")),
                 quantity=quantity,
-                unit_price_pkr=unit_price,
-                gross_amount_pkr=_coerce_numeric(raw_row.get(column_for_field.get("gross_amount_pkr", ""))),
-                net_amount_pkr=net_amount,
-                cogs_amount_pkr=cogs_amount,
+                unit_price=unit_price,
+                gross_amount=_coerce_numeric(raw_row.get(column_for_field.get("gross_amount", ""))),
+                net_amount=net_amount,
+                cogs_amount=cogs_amount,
                 gross_margin_pct=_coerce_numeric(raw_row.get(column_for_field.get("gross_margin_pct", ""))),
                 discount_pct=_coerce_numeric(raw_row.get(column_for_field.get("discount_pct", ""))),
                 payment_terms=raw_row.get(column_for_field.get("payment_terms", "")),
