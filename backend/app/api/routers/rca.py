@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db_session
 from app.api.schemas.rca import AnalysisRunOut, DetectIssuesRequest, EvidenceOut, IssueOut
 from app.db.models.analysis import AnalysisRun, Evidence, Issue
+from app.db.models.clients import Client
 from app.kpi.periods import InvalidPeriodError
 from app.rca import engine
 
@@ -26,6 +27,19 @@ router = APIRouter(tags=["rca"])
 def _cid(client_id: uuid.UUID | None) -> str | None:
     """See app/api/routers/kpi.py's `_cid` -- same str/UUID boundary conversion."""
     return str(client_id) if client_id is not None else None
+
+
+def _client_currency(session: Session, client_id: uuid.UUID | None) -> str | None:
+    """See app/api/routers/kpi.py's `_client_currency` -- same resolution, so a materiality
+    threshold that's denominated in a fixed currency (`min_absolute_impact_pkr`) gets
+    compared against figures already converted into this client's own currency, not assumed
+    to be PKR just because the deployment used to be PKR-only."""
+    if client_id is None:
+        return None
+    client = session.get(Client, client_id)
+    if client is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Client not found.")
+    return client.reporting_currency
 
 
 def _evidence_ids_for_issue(session: Session, issue_id: uuid.UUID) -> tuple[uuid.UUID, ...]:
@@ -162,6 +176,7 @@ def detect(body: DetectIssuesRequest, session: Session = Depends(get_db_session)
             body.period_key,
             comparison_type=body.comparison_type,
             client_id=_cid(body.client_id),
+            client_currency=_client_currency(session, body.client_id),
         )
     except InvalidPeriodError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

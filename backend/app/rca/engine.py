@@ -59,6 +59,7 @@ def detect_issues(
     dataset_id: uuid.UUID | None = None,
     persist: bool = True,
     client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> AnalysisRun:
     window = resolve_period(granularity, period_key, client_id=client_id)
     comparison_window = resolve_comparison_period(window, comparison_type)
@@ -76,7 +77,9 @@ def detect_issues(
     session.add(run)
     session.flush()
 
-    candidates = issues.run_all_detectors(session, granularity, period_key, comparison_type, client_id)
+    candidates = issues.run_all_detectors(
+        session, granularity, period_key, comparison_type, client_id, client_currency
+    )
     created_issue_ids: list[str] = []
     for candidate in candidates:
         issue = Issue(

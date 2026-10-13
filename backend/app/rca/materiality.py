@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.fx.convert import convert_amount
+
 
 @dataclass(frozen=True)
 class MaterialityThresholds:
@@ -100,7 +102,8 @@ def evaluate_materiality(
     issue_type: str,
     *,
     percentage_change_pct: float | None = None,
-    absolute_impact_pkr: float | None = None,
+    absolute_impact: float | None = None,
+    currency: str | None = None,
     dimension_share_pct: float | None = None,
     sample_size: int | None = None,
     contribution_share_pct: float | None = None,
@@ -108,7 +111,13 @@ def evaluate_materiality(
     """A rule only fires if both its threshold is configured *and* the caller supplied the
     corresponding actual value; a configured-but-unsupplied rule is skipped, never silently
     passed. This keeps the function usable for every issue type without issue-type-specific
-    branching here -- `issues.py` decides which actuals are meaningful for each type."""
+    branching here -- `issues.py` decides which actuals are meaningful for each type.
+
+    `absolute_impact` is whatever currency the caller's own figures are actually in (a
+    client's own resolved reporting currency, Phase 9) -- never assumed to be PKR just
+    because `min_absolute_impact_pkr` is. `currency` says what that is, so the PKR-
+    denominated threshold can be converted into the same units before comparing; omitting
+    it (or passing "PKR") leaves the threshold as-is, a no-op conversion."""
     thresholds = get_thresholds(issue_type)
     rules: dict[str, dict[str, float]] = {}
     passed = True
@@ -126,10 +135,17 @@ def evaluate_materiality(
         thresholds.min_percentage_change_pct,
         None if percentage_change_pct is None else abs(percentage_change_pct),
     )
+    threshold_in_currency = (
+        None
+        if thresholds.min_absolute_impact_pkr is None
+        else convert_amount(
+            thresholds.min_absolute_impact_pkr, from_currency="PKR", to_currency=currency or "PKR"
+        )
+    )
     _check(
         "min_absolute_impact_pkr",
-        thresholds.min_absolute_impact_pkr,
-        None if absolute_impact_pkr is None else abs(absolute_impact_pkr),
+        threshold_in_currency,
+        None if absolute_impact is None else abs(absolute_impact),
     )
     _check("min_dimension_share_pct", thresholds.min_dimension_share_pct, dimension_share_pct)
     _check(

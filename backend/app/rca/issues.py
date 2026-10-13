@@ -56,6 +56,7 @@ def _kpi_change(
     period_key: str,
     comparison_type: str,
     client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> KPIResult | None:
     """`None` when either side of the comparison isn't `available` -- callers must treat a
     `None` result as "cannot evaluate this detector", never substitute a fabricated number."""
@@ -67,6 +68,7 @@ def _kpi_change(
         comparison_type=comparison_type,
         persist=False,
         client_id=client_id,
+        client_currency=client_currency,
     )
     if result.status is not KPIStatus.AVAILABLE or result.percentage_change_status != "ok":
         return None
@@ -79,14 +81,18 @@ def detect_revenue_decline(
     period_key: str,
     comparison_type: str,
     client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> list[IssueCandidate]:
-    result = _kpi_change(session, "revenue", granularity, period_key, comparison_type, client_id)
+    result = _kpi_change(
+        session, "revenue", granularity, period_key, comparison_type, client_id, client_currency
+    )
     if result is None or result.percentage_change is None or result.percentage_change >= 0:
         return []
     check = evaluate_materiality(
         "revenue_decline",
         percentage_change_pct=result.percentage_change,
-        absolute_impact_pkr=result.absolute_change,
+        absolute_impact=result.absolute_change,
+        currency=result.currency,
     )
     if not check.is_material:
         return []
@@ -118,13 +124,22 @@ def detect_revenue_growth_slowdown(
     period_key: str,
     comparison_type: str,
     client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> list[IssueCandidate]:
-    current = _kpi_change(session, "revenue", granularity, period_key, comparison_type, client_id)
+    current = _kpi_change(
+        session, "revenue", granularity, period_key, comparison_type, client_id, client_currency
+    )
     if current is None or current.percentage_change is None or current.percentage_change <= 0:
         return []  # not growing this period -- that's revenue_decline's territory, not a slowdown
     assert current.comparison_period_key is not None
     prior = _kpi_change(
-        session, "revenue", granularity, current.comparison_period_key, comparison_type, client_id
+        session,
+        "revenue",
+        granularity,
+        current.comparison_period_key,
+        comparison_type,
+        client_id,
+        client_currency,
     )
     if prior is None or prior.percentage_change is None:
         return []
@@ -165,8 +180,11 @@ def detect_margin_deterioration(
     period_key: str,
     comparison_type: str,
     client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> list[IssueCandidate]:
-    result = _kpi_change(session, "gross_margin_pct", granularity, period_key, comparison_type, client_id)
+    result = _kpi_change(
+        session, "gross_margin_pct", granularity, period_key, comparison_type, client_id, client_currency
+    )
     # `absolute_change` here is a percentage-POINT change in a percentage metric -- the
     # business-meaningful threshold for margin deterioration (see materiality.py's comment),
     # not the KPI engine's relative `percentage_change` of that percentage.
@@ -206,9 +224,14 @@ def detect_unusual_cost_movement(
     period_key: str,
     comparison_type: str,
     client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> list[IssueCandidate]:
-    cogs = _kpi_change(session, "cogs", granularity, period_key, comparison_type, client_id)
-    revenue = _kpi_change(session, "revenue", granularity, period_key, comparison_type, client_id)
+    cogs = _kpi_change(
+        session, "cogs", granularity, period_key, comparison_type, client_id, client_currency
+    )
+    revenue = _kpi_change(
+        session, "revenue", granularity, period_key, comparison_type, client_id, client_currency
+    )
     if cogs is None or revenue is None or cogs.percentage_change is None or revenue.percentage_change is None:
         return []
     gap = cogs.percentage_change - revenue.percentage_change
@@ -248,8 +271,11 @@ def detect_unusual_volume_movement(
     period_key: str,
     comparison_type: str,
     client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> list[IssueCandidate]:
-    result = _kpi_change(session, "sales_quantity", granularity, period_key, comparison_type, client_id)
+    result = _kpi_change(
+        session, "sales_quantity", granularity, period_key, comparison_type, client_id, client_currency
+    )
     if result is None or result.percentage_change is None:
         return []
     check = evaluate_materiality("unusual_volume_movement", percentage_change_pct=result.percentage_change)
@@ -299,6 +325,7 @@ def detect_regional_performance_deterioration(
     period_key: str,
     comparison_type: str,
     client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> list[IssueCandidate]:
     return _dimension_deterioration(
         session,
@@ -309,6 +336,7 @@ def detect_regional_performance_deterioration(
         issue_type="regional_performance_deterioration",
         metric="revenue",
         client_id=client_id,
+        client_currency=client_currency,
     )
 
 
@@ -318,6 +346,8 @@ def detect_product_margin_deterioration(
     period_key: str,
     comparison_type: str,
     client_id: str | None = None,
+    client_currency: str | None = None,  # unused: this issue type has no absolute-currency
+    # materiality threshold to convert -- accepted only for uniform DETECTORS dispatch.
 ) -> list[IssueCandidate]:
     windows = _dimension_windows(session, granularity, period_key, comparison_type, client_id)
     if windows is None:
@@ -386,6 +416,7 @@ def _dimension_deterioration(
     issue_type: str,
     metric: str,
     client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> list[IssueCandidate]:
     windows = _dimension_windows(session, granularity, period_key, comparison_type, client_id)
     if windows is None:
@@ -410,7 +441,8 @@ def _dimension_deterioration(
         check = evaluate_materiality(
             issue_type,
             percentage_change_pct=pct_change,
-            absolute_impact_pkr=cur - pri,
+            absolute_impact=cur - pri,
+            currency=client_currency,
             dimension_share_pct=share,
             sample_size=counts.get(entity, 0),
         )
@@ -447,6 +479,8 @@ def detect_customer_concentration_change(
     period_key: str,
     comparison_type: str,
     client_id: str | None = None,
+    client_currency: str | None = None,  # unused: this issue type has no absolute-currency
+    # materiality threshold to convert -- accepted only for uniform DETECTORS dispatch.
 ) -> list[IssueCandidate]:
     windows = _dimension_windows(session, granularity, period_key, comparison_type, client_id)
     if windows is None:
@@ -512,10 +546,13 @@ def run_all_detectors(
     period_key: str,
     comparison_type: str,
     client_id: str | None = None,
+    client_currency: str | None = None,
 ) -> list[IssueCandidate]:
     candidates: list[IssueCandidate] = []
     for detector in DETECTORS:
-        candidates.extend(detector(session, granularity, period_key, comparison_type, client_id))
+        candidates.extend(
+            detector(session, granularity, period_key, comparison_type, client_id, client_currency)
+        )
     return candidates
 
 
