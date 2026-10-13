@@ -1,6 +1,6 @@
 import { Card } from "../ui/card";
 import { formatCurrencyAmount } from "../../lib/format";
-import { useSystemConfig } from "../../hooks/useSystemStatus";
+import { useDisplayCurrency } from "../../hooks/useCurrency";
 import type { DimensionBreakdownRow } from "../../types/kpi";
 
 export function CustomerTable({
@@ -10,8 +10,7 @@ export function CustomerTable({
   title: string;
   rows: DimensionBreakdownRow[];
 }) {
-  const systemConfigQuery = useSystemConfig();
-  const currency = systemConfigQuery.data?.currency ?? null;
+  const currency = useDisplayCurrency();
   return (
     <Card>
       <h3 className="mb-2 text-sm font-semibold text-slate-500">{title}</h3>

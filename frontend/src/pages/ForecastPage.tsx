@@ -3,7 +3,7 @@ import { Card } from "../components/ui/card";
 import { ForecastChart } from "../components/forecast/ForecastChart";
 import { EvidenceDrawer } from "../components/evidence/EvidenceDrawer";
 import { useForecastRuns, useGenerateForecast, useHistoricalSeries } from "../hooks/useForecast";
-import { useSystemConfig } from "../hooks/useSystemStatus";
+import { useDisplayCurrency } from "../hooks/useCurrency";
 import { formatCount, formatCurrencyAmount } from "../lib/format";
 import { CONFIDENCE_LEVELS, FORECAST_METRICS } from "../types/forecast";
 import type { ConfidenceLevel, ForecastMetric, ForecastRun } from "../types/forecast";
@@ -64,8 +64,7 @@ export function ForecastPage() {
 
   const runsQuery = useForecastRuns(metric);
   const generateMutation = useGenerateForecast();
-  const systemConfigQuery = useSystemConfig();
-  const currency = systemConfigQuery.data?.currency ?? null;
+  const currency = useDisplayCurrency();
 
   const run = activeRun ?? runsQuery.data?.[0] ?? null;
   const historicalQuery = useHistoricalSeries(

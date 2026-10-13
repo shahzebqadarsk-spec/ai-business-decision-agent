@@ -3,7 +3,7 @@ import { Card } from "../components/ui/card";
 import { ScenarioChart } from "../components/scenario/ScenarioChart";
 import { useForecastRuns } from "../hooks/useForecast";
 import { useGenerateScenario, useScenarios } from "../hooks/useScenario";
-import { useSystemConfig } from "../hooks/useSystemStatus";
+import { useDisplayCurrency } from "../hooks/useCurrency";
 import { formatCount, formatCurrencyAmount } from "../lib/format";
 import { SCENARIO_METRICS } from "../types/scenario";
 import type { Scenario, ScenarioMetric } from "../types/scenario";
@@ -30,8 +30,7 @@ export function ScenarioPage() {
   const cogsRunsQuery = useForecastRuns("cogs");
   const scenariosQuery = useScenarios();
   const generateMutation = useGenerateScenario();
-  const systemConfigQuery = useSystemConfig();
-  const currency = systemConfigQuery.data?.currency ?? null;
+  const currency = useDisplayCurrency();
 
   const scenario = activeScenario ?? scenariosQuery.data?.[0] ?? null;
 

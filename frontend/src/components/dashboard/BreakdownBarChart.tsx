@@ -1,7 +1,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card } from "../ui/card";
 import { formatCurrencyAmount } from "../../lib/format";
-import { useSystemConfig } from "../../hooks/useSystemStatus";
+import { useDisplayCurrency } from "../../hooks/useCurrency";
 import type { DimensionBreakdownRow } from "../../types/kpi";
 
 export function BreakdownBarChart({
@@ -11,8 +11,7 @@ export function BreakdownBarChart({
   title: string;
   rows: DimensionBreakdownRow[];
 }) {
-  const systemConfigQuery = useSystemConfig();
-  const currency = systemConfigQuery.data?.currency ?? null;
+  const currency = useDisplayCurrency();
   const fmt = (v: number) => formatCurrencyAmount(v, currency);
   const data = rows
     .filter((r) => r.value !== null)

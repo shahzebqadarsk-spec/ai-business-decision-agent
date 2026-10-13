@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Card } from "../ui/card";
 import { LazyPlotlyChart } from "../../charts/LazyPlotlyChart";
-import { useSystemConfig } from "../../hooks/useSystemStatus";
+import { useDisplayCurrency } from "../../hooks/useCurrency";
 import type { DimensionBreakdownRow } from "../../types/kpi";
 
 const MONTH_LABELS = [
@@ -14,8 +14,7 @@ const LINE_COLORS = ["#94a3b8", "#1d4ed8", "#059669", "#d97706", "#dc2626"];
  * directly, rather than one long run of months -- the kind of comparison Plotly is used
  * for here, versus the simple single-series sparklines Recharts handles elsewhere. */
 export function RevenueTrendChart({ rows }: { rows: DimensionBreakdownRow[] }) {
-  const systemConfigQuery = useSystemConfig();
-  const currency = systemConfigQuery.data?.currency ?? "PKR";
+  const currency = useDisplayCurrency() ?? "PKR";
   const { years, series } = useMemo(() => {
     const byYear = new Map<string, (number | null)[]>();
     for (const row of rows) {

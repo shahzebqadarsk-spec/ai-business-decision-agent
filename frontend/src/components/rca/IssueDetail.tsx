@@ -6,7 +6,7 @@ import { ContributionBarChart } from "./ContributionBarChart";
 import { WaterfallChart } from "./WaterfallChart";
 import { formatCount, formatCurrencyAmount, formatPercentValue, formatSigned } from "../../lib/format";
 import { useAnalyzeIssue } from "../../hooks/useRca";
-import { useSystemConfig } from "../../hooks/useSystemStatus";
+import { useDisplayCurrency } from "../../hooks/useCurrency";
 import type { ContributionBreakdownPayload, GrossProfitPayload, Issue, VolumePriceEffectPayload } from "../../types/rca";
 
 const SECTION_LABELS: Record<string, string> = {
@@ -201,8 +201,7 @@ export function IssueDetail({
   onSelectEvidence: (evidenceId: string) => void;
 }) {
   const analyzeMutation = useAnalyzeIssue();
-  const systemConfigQuery = useSystemConfig();
-  const currency = systemConfigQuery.data?.currency ?? null;
+  const currency = useDisplayCurrency();
 
   const changeDirection =
     issue.percentage_change === null ? null : issue.percentage_change >= 0 ? "up" : "down";
