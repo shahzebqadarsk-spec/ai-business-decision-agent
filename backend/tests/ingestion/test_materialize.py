@@ -26,8 +26,8 @@ _FULL_MAPPING = {
     "cust": "customer_id",
     "prod": "product_id",
     "qty": "quantity",
-    "price": "unit_price_pkr",
-    "net": "net_amount_pkr",
+    "price": "unit_price",
+    "net": "net_amount",
 }
 
 
@@ -47,7 +47,7 @@ def test_materialize_writes_lineage() -> None:
 
 def test_materialize_skips_rows_that_fail_to_coerce() -> None:
     rows, result = materialize_fact_sales(_df(), confirmed_mapping=_FULL_MAPPING, source_file_id=uuid.uuid4())
-    # row 1 has a non-numeric net_amount_pkr and should be skipped, row 0 should succeed
+    # row 1 has a non-numeric net_amount and should be skipped, row 0 should succeed
     assert result.rows_written == 1
     assert result.rows_skipped == 1
     assert len(rows) == 1
@@ -92,10 +92,10 @@ def test_materialize_coerces_mixed_currency_formatted_values() -> None:
     rows, result = materialize_fact_sales(df, confirmed_mapping=_FULL_MAPPING, source_file_id=uuid.uuid4())
     assert result.rows_written == 2
     assert result.rows_skipped == 0
-    assert rows[0].unit_price_pkr == 1441.26
-    assert rows[0].net_amount_pkr == 14412.60
-    assert rows[1].unit_price_pkr == 210.99
-    assert rows[1].net_amount_pkr == 4219.80
+    assert rows[0].unit_price == 1441.26
+    assert rows[0].net_amount == 14412.60
+    assert rows[1].unit_price == 210.99
+    assert rows[1].net_amount == 4219.80
 
 
 # --- Phase 8: multi-currency support -----------------------------------------------------
@@ -108,8 +108,8 @@ def test_materialize_defaults_to_reporting_currency_when_no_currency_signal() ->
     assert rows[0].currency == "PKR"
     assert float(rows[0].fx_rate_to_reporting) == pytest.approx(1.0)
     assert rows[0].fx_rate_as_of == RATES_AS_OF
-    assert float(rows[0].unit_price_reporting) == pytest.approx(float(rows[0].unit_price_pkr))
-    assert float(rows[0].net_amount_reporting) == pytest.approx(float(rows[0].net_amount_pkr))
+    assert float(rows[0].unit_price_reporting) == pytest.approx(float(rows[0].unit_price))
+    assert float(rows[0].net_amount_reporting) == pytest.approx(float(rows[0].net_amount))
 
 
 def test_materialize_detects_unambiguous_currency_from_price_text() -> None:
@@ -127,7 +127,7 @@ def test_materialize_detects_unambiguous_currency_from_price_text() -> None:
     rows, result = materialize_fact_sales(df, confirmed_mapping=_FULL_MAPPING, source_file_id=uuid.uuid4())
     assert result.rows_written == 1
     assert rows[0].currency == "USD"
-    assert float(rows[0].unit_price_pkr) == 100.0  # native amount, column name notwithstanding
+    assert float(rows[0].unit_price) == 100.0  # native amount, column name notwithstanding
     assert float(rows[0].fx_rate_to_reporting) != pytest.approx(1.0)
     assert float(rows[0].net_amount_reporting) == pytest.approx(
         1000.0 * float(rows[0].fx_rate_to_reporting)
@@ -174,7 +174,7 @@ def test_materialize_mixed_currencies_within_one_file_convert_independently() ->
     assert float(pkr_row.fx_rate_to_reporting) == pytest.approx(1.0)
     assert float(usd_row.fx_rate_to_reporting) != pytest.approx(1.0)
     assert float(pkr_row.net_amount_reporting) == pytest.approx(1000.0)
-    assert float(usd_row.net_amount_reporting) != pytest.approx(float(usd_row.net_amount_pkr))
+    assert float(usd_row.net_amount_reporting) != pytest.approx(float(usd_row.net_amount))
 
 
 def test_materialize_skips_rows_with_an_unsupported_explicit_currency() -> None:

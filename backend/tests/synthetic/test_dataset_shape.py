@@ -57,8 +57,8 @@ def test_currency_is_pkr_everywhere(default_dataset: dict[str, pd.DataFrame]) ->
 
 def test_gross_amount_equals_quantity_times_unit_price(default_dataset: dict[str, pd.DataFrame]) -> None:
     sales = default_dataset["sales"]
-    expected = (sales["quantity"] * sales["unit_price_pkr"]).round(2)
-    assert ((expected - sales["gross_amount_pkr"]).abs() < 0.01).all()
+    expected = (sales["quantity"] * sales["unit_price"]).round(2)
+    assert ((expected - sales["gross_amount"]).abs() < 0.01).all()
 
 
 def test_config_locked_values_match_dataset(fast_config: GeneratorConfig) -> None:

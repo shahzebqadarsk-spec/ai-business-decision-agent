@@ -127,10 +127,10 @@ Phase 2 itself, not deferred:
 
 1. **"Revenue by Region/Product/Customer" are not separate KPI registry entries.** They are
    `revenue`'s dimensional breakdown (`POST /kpis/revenue/breakdown?dimension=...`). The
-   formula (`SUM(net_amount_pkr)`) is identical; only the `GROUP BY` differs, so three
+   formula (`SUM(net_amount)`) is identical; only the `GROUP BY` differs, so three
    registry entries would duplicate one formula three times with no behavioral difference.
 2. **COGS, Gross Profit, and Gross Margin % are implemented as real (computable) KPIs, not
-   stubs.** `cogs_amount_pkr` is genuinely populated on every `fact_sales` row by Phase 2's
+   stubs.** `cogs_amount` is genuinely populated on every `fact_sales` row by Phase 2's
    materialization, so gating these behind a "not yet built" stub would withhold a number the
    data already supports.
 3. **`kpi_calculations` (provenance/audit trail) is a new table, deliberately kept separate
@@ -302,9 +302,11 @@ Phase 2 itself, not deferred:
    *reporting* currency.** `fact_sales.currency` (already present since Phase 2, unused until
    now) holds each row's own native currency. Every KPI/RCA/forecast calculation reads the new
    `unit_price_reporting` / `net_amount_reporting` / `cogs_amount_reporting` columns -- already
-   converted into `Settings.reporting_currency` -- never the original `*_pkr` columns, which
-   keep their name for migration-compatibility but hold whatever currency the row's `currency`
-   says, not necessarily PKR despite the name.
+   converted into `Settings.reporting_currency` -- never the original `unit_price` / `net_amount`
+   / `cogs_amount` columns, which hold whatever currency the row's `currency` says (not
+   necessarily the reporting currency). These were named `*_pkr` until Phase 9.1 -- dropped
+   once multi-currency/multi-client made that label actively misleading (see Phase 9.1 entry
+   below).
 3. **A row's native currency is resolved in this order, and never guessed beyond what the text
    says:** (1) a confirmed `currency` column mapping, (2) a currency symbol/code detected
    directly in the price text (`numeric_format.detect_currency_code` -- only when unambiguous,
@@ -334,3 +336,18 @@ Phase 2 itself, not deferred:
    no existing column was renamed or dropped, so this is a non-breaking migration. Rows
    materialized before Phase 8 simply have `NULL` in the new columns rather than a migration
    computing a conversion it can't verify against the original upload.
+
+## Phase 9.1 (dropped the "_pkr" suffix from fact_sales' raw money columns)
+
+1. **`unit_price_pkr` / `gross_amount_pkr` / `net_amount_pkr` / `cogs_amount_pkr` became
+   `unit_price` / `gross_amount` / `net_amount` / `cogs_amount`.** These were named back when
+   Phase 0-7 only ever supported PKR; the value stored was never actually forced into PKR --
+   `currency` (Phase 8) always said what currency a row's raw amounts were really in. Once
+   multi-currency and multi-client (Phase 8/9) made that real, the `_pkr` label was actively
+   misleading rather than just stale, so it was dropped.
+2. **A plain column rename, not a drop-and-add.** The migration (`ecdadb25d6b8`) uses
+   `ALTER TABLE ... RENAME COLUMN`, so every existing row's data is preserved exactly as-is --
+   no backfill, no data loss, fully reversible.
+3. **Old `_pkr` spellings are kept as canonical-field synonyms** (`canonical_fields.py`), so a
+   source file or an already-confirmed mapping using the old column name keeps auto-matching
+   after the rename.

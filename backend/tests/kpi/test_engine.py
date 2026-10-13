@@ -18,8 +18,8 @@ pytestmark = pytest.mark.usefixtures("seeded_fact_sales_file_id")
 def test_yoy_comparison_reports_both_values_and_a_direction(
     db_session: Session, sales_df: pd.DataFrame
 ) -> None:
-    revenue_2024 = sales_df[sales_df["month"].dt.year == 2024]["net_amount_pkr"].sum()
-    revenue_2023 = sales_df[sales_df["month"].dt.year == 2023]["net_amount_pkr"].sum()
+    revenue_2024 = sales_df[sales_df["month"].dt.year == 2024]["net_amount"].sum()
+    revenue_2023 = sales_df[sales_df["month"].dt.year == 2023]["net_amount"].sum()
 
     result = engine.calculate_kpi(db_session, "revenue", "year", "2024", comparison_type="YoY")
 
@@ -39,8 +39,8 @@ def test_mom_comparison(db_session: Session, sales_df: pd.DataFrame) -> None:
 
     result = engine.calculate_kpi(db_session, "revenue", "month", "2024-02", comparison_type="MoM")
 
-    assert result.value == pytest.approx(feb["net_amount_pkr"].sum(), rel=1e-9)
-    assert result.comparison_value == pytest.approx(jan["net_amount_pkr"].sum(), rel=1e-9)
+    assert result.value == pytest.approx(feb["net_amount"].sum(), rel=1e-9)
+    assert result.comparison_value == pytest.approx(jan["net_amount"].sum(), rel=1e-9)
     assert result.comparison_period_key == "2024-01"
 
 

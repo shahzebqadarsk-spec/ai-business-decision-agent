@@ -27,7 +27,7 @@ def test_messy_sales_has_impossible_numeric_values(
 ) -> None:
     messy_tables, _defects = fast_messy
     sales = messy_tables["sales"]
-    assert (sales["quantity"] < 0).any() or (sales["unit_price_pkr"] == 0).any()
+    assert (sales["quantity"] < 0).any() or (sales["unit_price"] == 0).any()
 
 
 def test_messy_sales_has_orphan_customer_ids(
@@ -43,7 +43,7 @@ def test_messy_sales_has_schema_inconsistency(
 ) -> None:
     messy_tables, _defects = fast_messy
     assert "net_amount" in messy_tables["sales"].columns
-    assert "net_amount_pkr" not in messy_tables["sales"].columns
+    assert "net_amount" not in messy_tables["sales"].columns
 
 
 def test_defects_manifest_documents_every_injected_defect(

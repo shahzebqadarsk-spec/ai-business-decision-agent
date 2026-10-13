@@ -5,13 +5,13 @@ from app.ingestion.quality import run_quality_checks
 
 
 def test_detects_missing_values() -> None:
-    df = pd.DataFrame({"quantity": ["10", None, "30"], "unit_price_pkr": ["5", "6", "7"]})
+    df = pd.DataFrame({"quantity": ["10", None, "30"], "unit_price": ["5", "6", "7"]})
     issues = run_quality_checks(df)
     assert any(i.issue_type == "missing_values" and i.column_name == "quantity" for i in issues)
 
 
 def test_detects_duplicate_records() -> None:
-    df = pd.DataFrame({"quantity": ["10", "10"], "unit_price_pkr": ["5", "5"]})
+    df = pd.DataFrame({"quantity": ["10", "10"], "unit_price": ["5", "5"]})
     issues = run_quality_checks(df)
     assert any(i.issue_type == "duplicate_records" for i in issues)
 
@@ -23,11 +23,11 @@ def test_detects_invalid_dates() -> None:
 
 
 def test_detects_impossible_numeric_values() -> None:
-    df = pd.DataFrame({"quantity": ["10", "-5", "20"], "unit_price_pkr": ["5", "6", "0"]})
+    df = pd.DataFrame({"quantity": ["10", "-5", "20"], "unit_price": ["5", "6", "0"]})
     issues = run_quality_checks(df, date_columns=(), measure_columns=())
     types_by_column = {i.column_name for i in issues if i.issue_type == "impossible_numeric_values"}
     assert "quantity" in types_by_column
-    assert "unit_price_pkr" in types_by_column
+    assert "unit_price" in types_by_column
 
 
 def test_detects_inconsistent_categorical_values() -> None:
@@ -87,7 +87,7 @@ def test_clean_dataframe_has_no_issues() -> None:
     df = pd.DataFrame(
         {
             "quantity": [str(v) for v in range(1, 21)],
-            "unit_price_pkr": [str(v) for v in range(10, 30)],
+            "unit_price": [str(v) for v in range(10, 30)],
             "order_date": [f"2023-01-{d:02d}" for d in range(1, 21)],
         }
     )

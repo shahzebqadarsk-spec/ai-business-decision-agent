@@ -131,7 +131,7 @@ def test_top_k_with_other_is_a_no_op_when_under_the_limit() -> None:
 def test_region_decomposition_partitions_revenue_exactly(db_session: Session) -> None:
     current = resolve_period("year", "2025")
     prior = resolve_period("year", "2024")
-    breakdown = dec.decompose_by_dimension(db_session, FactSales.net_amount_pkr, current, prior, "region")
+    breakdown = dec.decompose_by_dimension(db_session, FactSales.net_amount, current, prior, "region")
     assert breakdown.coverage_pct == pytest.approx(100.0, abs=0.01)
     assert breakdown.residual_is_material is False
     assert sum(r.absolute_contribution for r in breakdown.rows) == pytest.approx(breakdown.total_change)
@@ -142,12 +142,12 @@ def test_region_decomposition_matches_independent_pandas_computation(
 ) -> None:
     current = resolve_period("year", "2025")
     prior = resolve_period("year", "2024")
-    breakdown = dec.decompose_by_dimension(db_session, FactSales.net_amount_pkr, current, prior, "region")
+    breakdown = dec.decompose_by_dimension(db_session, FactSales.net_amount, current, prior, "region")
 
     expected_current = (
-        sales_df[sales_df["month"].dt.year == 2025].groupby("region_id")["net_amount_pkr"].sum()
+        sales_df[sales_df["month"].dt.year == 2025].groupby("region_id")["net_amount"].sum()
     )
-    expected_prior = sales_df[sales_df["month"].dt.year == 2024].groupby("region_id")["net_amount_pkr"].sum()
+    expected_prior = sales_df[sales_df["month"].dt.year == 2024].groupby("region_id")["net_amount"].sum()
     for row in breakdown.rows:
         region = row.dimension_value
         assert row.current_value == pytest.approx(float(expected_current.get(region, 0.0)), rel=1e-6)
@@ -158,7 +158,7 @@ def test_region_decomposition_matches_independent_pandas_computation(
 def test_region_decomposition_ranks_by_magnitude_of_contribution_descending(db_session: Session) -> None:
     current = resolve_period("year", "2025")
     prior = resolve_period("year", "2024")
-    breakdown = dec.decompose_by_dimension(db_session, FactSales.net_amount_pkr, current, prior, "region")
+    breakdown = dec.decompose_by_dimension(db_session, FactSales.net_amount, current, prior, "region")
     magnitudes = [abs(r.absolute_contribution) for r in breakdown.rows]
     assert magnitudes == sorted(magnitudes, reverse=True)
     assert [r.rank for r in breakdown.rows] == list(range(1, len(breakdown.rows) + 1))
@@ -171,14 +171,14 @@ def test_region_filtered_product_decomposition_sums_to_that_regions_own_change(
     current = resolve_period("year", "2025")
     prior = resolve_period("year", "2024")
 
-    region_only = dec.decompose_by_dimension(db_session, FactSales.net_amount_pkr, current, prior, "region")
+    region_only = dec.decompose_by_dimension(db_session, FactSales.net_amount, current, prior, "region")
     region_total_change = next(
         r.absolute_contribution for r in region_only.rows if r.dimension_value == region_id
     )
 
     within_region_by_product = dec.decompose_by_dimension(
         db_session,
-        FactSales.net_amount_pkr,
+        FactSales.net_amount,
         current,
         prior,
         "product",
@@ -196,8 +196,8 @@ def test_company_wide_volume_price_effect_sums_to_revenue_change(db_session: Ses
 
     current = resolve_period("year", "2025")
     prior = resolve_period("year", "2024")
-    cur_rev = agg.sum_column(db_session, FactSales.net_amount_pkr, current)
-    pri_rev = agg.sum_column(db_session, FactSales.net_amount_pkr, prior)
+    cur_rev = agg.sum_column(db_session, FactSales.net_amount, current)
+    pri_rev = agg.sum_column(db_session, FactSales.net_amount, prior)
     cur_qty = agg.sum_column(db_session, FactSales.quantity, current)
     pri_qty = agg.sum_column(db_session, FactSales.quantity, prior)
 

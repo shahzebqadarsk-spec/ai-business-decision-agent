@@ -151,10 +151,10 @@ _CANONICAL_COLUMNS = (
     "product_id",
     "category_id",
     "quantity",
-    "unit_price_pkr",
-    "gross_amount_pkr",
-    "net_amount_pkr",
-    "cogs_amount_pkr",
+    "unit_price",
+    "gross_amount",
+    "net_amount",
+    "cogs_amount",
     "gross_margin_pct",
     "discount_pct",
     "payment_terms",
@@ -239,9 +239,9 @@ def seeded_fact_sales_file_id(test_engine: Engine, full_scale_sales_csv: Path) -
         rate = fx_rate(from_currency=native_currency, to_currency=reporting_currency)
         sub["fx_rate_to_reporting"] = rate
         sub["fx_rate_as_of"] = RATES_AS_OF
-        sub["unit_price_reporting"] = sub["unit_price_pkr"] * rate
-        sub["net_amount_reporting"] = sub["net_amount_pkr"] * rate
-        sub["cogs_amount_reporting"] = sub["cogs_amount_pkr"] * rate
+        sub["unit_price_reporting"] = sub["unit_price"] * rate
+        sub["net_amount_reporting"] = sub["net_amount"] * rate
+        sub["cogs_amount_reporting"] = sub["cogs_amount"] * rate
 
         sub = sub.where(pd.notnull(sub), None)
         records = cast(list[dict[str, Any]], sub.to_dict("records"))

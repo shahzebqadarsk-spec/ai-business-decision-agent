@@ -25,7 +25,7 @@ def _year_2024(sales_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def test_revenue_matches_independent_pandas_sum(db_session: Session, sales_df: pd.DataFrame) -> None:
-    expected = _year_2024(sales_df)["net_amount_pkr"].sum()
+    expected = _year_2024(sales_df)["net_amount"].sum()
     window = resolve_period("year", "2024")
     result = calc.calculate_revenue(db_session, window)
     assert result.status is KPIStatus.AVAILABLE
@@ -44,7 +44,7 @@ def test_average_selling_price_matches_independent_calculation(
     db_session: Session, sales_df: pd.DataFrame
 ) -> None:
     subset = _year_2024(sales_df)
-    expected = subset["net_amount_pkr"].sum() / subset["quantity"].sum()
+    expected = subset["net_amount"].sum() / subset["quantity"].sum()
     window = resolve_period("year", "2024")
     result = calc.calculate_average_selling_price(db_session, window)
     assert result.value == pytest.approx(expected, rel=1e-9)
@@ -65,7 +65,7 @@ def test_transaction_count_matches_independent_nunique(db_session: Session, sale
 
 
 def test_cogs_matches_independent_pandas_sum(db_session: Session, sales_df: pd.DataFrame) -> None:
-    expected = _year_2024(sales_df)["cogs_amount_pkr"].sum()
+    expected = _year_2024(sales_df)["cogs_amount"].sum()
     window = resolve_period("year", "2024")
     result = calc.calculate_cogs(db_session, window)
     assert result.value == pytest.approx(expected, rel=1e-9)
@@ -73,7 +73,7 @@ def test_cogs_matches_independent_pandas_sum(db_session: Session, sales_df: pd.D
 
 def test_gross_profit_matches_independent_calculation(db_session: Session, sales_df: pd.DataFrame) -> None:
     subset = _year_2024(sales_df)
-    expected = subset["net_amount_pkr"].sum() - subset["cogs_amount_pkr"].sum()
+    expected = subset["net_amount"].sum() - subset["cogs_amount"].sum()
     window = resolve_period("year", "2024")
     result = calc.calculate_gross_profit(db_session, window)
     assert result.value == pytest.approx(expected, rel=1e-9)
@@ -83,8 +83,8 @@ def test_gross_margin_pct_matches_independent_calculation(
     db_session: Session, sales_df: pd.DataFrame
 ) -> None:
     subset = _year_2024(sales_df)
-    revenue = subset["net_amount_pkr"].sum()
-    cogs = subset["cogs_amount_pkr"].sum()
+    revenue = subset["net_amount"].sum()
+    cogs = subset["cogs_amount"].sum()
     expected = (revenue - cogs) / revenue * 100
     window = resolve_period("year", "2024")
     result = calc.calculate_gross_margin_pct(db_session, window)
@@ -165,9 +165,9 @@ def sparse_cogs_period(db_session: Session, seeded_fact_sales_file_id: str) -> N
                 "customer_id": "CUST-EDGE",
                 "product_id": "PROD-EDGE",
                 "quantity": 1,
-                "unit_price_pkr": 100,
-                "net_amount_pkr": 100,
-                "cogs_amount_pkr": 60 if i == 0 else None,
+                "unit_price": 100,
+                "net_amount": 100,
+                "cogs_amount": 60 if i == 0 else None,
                 # Calculators now read the *_reporting columns (Phase 8); this fixture
                 # bypasses materialize_fact_sales, so it has to set them itself, same as
                 # the shared seeded_fact_sales_file_id fixture does for the main dataset.
@@ -203,8 +203,8 @@ def zero_quantity_period(db_session: Session, seeded_fact_sales_file_id: str) ->
             "customer_id": "CUST-ZERO",
             "product_id": "PROD-ZERO",
             "quantity": 0,
-            "unit_price_pkr": 0,
-            "net_amount_pkr": 0,
+            "unit_price": 0,
+            "net_amount": 0,
             "currency": "PKR",
             "net_amount_reporting": 0,
         }

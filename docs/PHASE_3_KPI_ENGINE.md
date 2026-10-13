@@ -46,19 +46,19 @@ naming the missing table, never a fabricated number.
 **Deviation from the spec's literal list:** "Revenue by Region", "Revenue by Product" and
 "Revenue by Customer" are **not** separate registry entries. They are `revenue`'s dimensional
 breakdown (`POST /kpis/revenue/breakdown` with `dimension=region|product|customer`) — the
-formula is identical (`SUM(net_amount_pkr)`), only the `GROUP BY` differs, so three registry
+formula is identical (`SUM(net_amount)`), only the `GROUP BY` differs, so three registry
 entries would just be the same formula three times over with no behavioral difference.
 
 ## 2. Formula definitions
 
 | KPI | Formula |
 |---|---|
-| Revenue | `SUM(net_amount_pkr)` |
+| Revenue | `SUM(net_amount)` |
 | Sales Quantity | `SUM(quantity)` |
 | Average Selling Price | `Revenue / Quantity` (guarded: `invalid_data` if Quantity = 0) |
 | Customer Count | `COUNT(DISTINCT customer_id)` |
 | Transaction Count | `COUNT(DISTINCT sale_id)` |
-| COGS | `SUM(cogs_amount_pkr)` |
+| COGS | `SUM(cogs_amount)` |
 | Gross Profit | `Revenue - COGS` |
 | Gross Margin % | `(Revenue - COGS) / Revenue * 100` (guarded: `invalid_data` if Revenue = 0) |
 

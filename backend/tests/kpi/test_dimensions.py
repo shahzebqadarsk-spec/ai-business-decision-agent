@@ -11,7 +11,7 @@ pytestmark = pytest.mark.usefixtures("seeded_fact_sales_file_id")
 
 def test_revenue_by_region_matches_independent_groupby(db_session: Session, sales_df: pd.DataFrame) -> None:
     subset = sales_df[sales_df["month"].dt.year == 2024]
-    expected = subset.groupby("region_id")["net_amount_pkr"].sum().sort_values(ascending=False)
+    expected = subset.groupby("region_id")["net_amount"].sum().sort_values(ascending=False)
 
     window = resolve_period("year", "2024")
     rows = calc.breakdown_revenue(db_session, window, "region")
@@ -24,7 +24,7 @@ def test_revenue_by_region_matches_independent_groupby(db_session: Session, sale
 
 def test_revenue_by_product_matches_independent_groupby(db_session: Session, sales_df: pd.DataFrame) -> None:
     subset = sales_df[sales_df["month"].dt.year == 2024]
-    expected_total = subset.groupby("product_id")["net_amount_pkr"].sum().sum()
+    expected_total = subset.groupby("product_id")["net_amount"].sum().sum()
 
     window = resolve_period("year", "2024")
     rows = calc.breakdown_revenue(db_session, window, "product")

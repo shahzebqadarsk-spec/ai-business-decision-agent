@@ -15,7 +15,7 @@ pytestmark = pytest.mark.usefixtures("seeded_fact_sales_file_id")
 
 
 def test_full_seed42_history_is_sufficient(db_session: Session) -> None:
-    result = suf.check_history_sufficiency(db_session, FactSales.net_amount_pkr)
+    result = suf.check_history_sufficiency(db_session, FactSales.net_amount)
     assert result.status == "sufficient"
     assert len(result.history) == 36
     assert result.history[0][0] == "2023-01"
@@ -26,7 +26,7 @@ def test_full_seed42_history_is_sufficient(db_session: Session) -> None:
 def test_empty_table_is_insufficient(db_session: Session) -> None:
     db_session.execute(delete(FactSales))
     db_session.flush()
-    result = suf.check_history_sufficiency(db_session, FactSales.net_amount_pkr)
+    result = suf.check_history_sufficiency(db_session, FactSales.net_amount)
     assert result.status == "insufficient_data"
     assert "No fact_sales rows" in (result.reason or "")
     db_session.rollback()  # never commit the delete -- other tests in this session need the data
@@ -38,7 +38,7 @@ def test_a_gap_in_the_middle_of_history_is_detected(db_session: Session) -> None
     back so the shared session-scoped fixture is untouched for later tests."""
     db_session.execute(delete(FactSales).where(FactSales.month == date(2024, 6, 1)))
     db_session.flush()
-    result = suf.check_history_sufficiency(db_session, FactSales.net_amount_pkr)
+    result = suf.check_history_sufficiency(db_session, FactSales.net_amount)
     assert result.status == "insufficient_data"
     assert "gaps" in (result.reason or "")
     assert "2024-06" in (result.reason or "")
@@ -49,7 +49,7 @@ def test_insufficient_total_history_below_minimum(db_session: Session) -> None:
     """Keeps only the first 12 months (well under MIN_HISTORY_PERIODS=24)."""
     db_session.execute(delete(FactSales).where(FactSales.month >= date(2024, 1, 1)))
     db_session.flush()
-    result = suf.check_history_sufficiency(db_session, FactSales.net_amount_pkr)
+    result = suf.check_history_sufficiency(db_session, FactSales.net_amount)
     assert result.status == "insufficient_data"
     assert "Only 12 month" in (result.reason or "")
     db_session.rollback()

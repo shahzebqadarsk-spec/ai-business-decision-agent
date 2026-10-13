@@ -221,10 +221,10 @@ def test_regional_performance_deterioration_matches_pandas_for_the_flagged_regio
     for candidate in found:
         region = candidate.affected_entity
         cur = sales_df[(sales_df["month"].dt.year == 2025) & (sales_df["region_id"] == region)][
-            "net_amount_pkr"
+            "net_amount"
         ].sum()
         pri = sales_df[(sales_df["month"].dt.year == 2024) & (sales_df["region_id"] == region)][
-            "net_amount_pkr"
+            "net_amount"
         ].sum()
         expected_pct = (cur - pri) / abs(pri) * 100
         assert candidate.percentage_change == pytest.approx(expected_pct, rel=1e-6)
@@ -241,13 +241,13 @@ def test_product_margin_deterioration_matches_pandas_for_the_flagged_product(
         subset_cur = sales_df[(sales_df["month"].dt.year == 2025) & (sales_df["product_id"] == product)]
         subset_pri = sales_df[(sales_df["month"].dt.year == 2024) & (sales_df["product_id"] == product)]
         cur_margin = (
-            (subset_cur["net_amount_pkr"].sum() - subset_cur["cogs_amount_pkr"].sum())
-            / subset_cur["net_amount_pkr"].sum()
+            (subset_cur["net_amount"].sum() - subset_cur["cogs_amount"].sum())
+            / subset_cur["net_amount"].sum()
             * 100
         )
         pri_margin = (
-            (subset_pri["net_amount_pkr"].sum() - subset_pri["cogs_amount_pkr"].sum())
-            / subset_pri["net_amount_pkr"].sum()
+            (subset_pri["net_amount"].sum() - subset_pri["cogs_amount"].sum())
+            / subset_pri["net_amount"].sum()
             * 100
         )
         assert candidate.absolute_change == pytest.approx(cur_margin - pri_margin, rel=1e-6)

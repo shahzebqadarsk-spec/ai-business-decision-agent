@@ -53,9 +53,9 @@ def test_broken_gross_amount_arithmetic_is_caught(
     fast_dataset: dict[str, pd.DataFrame], fast_config: GeneratorConfig
 ) -> None:
     mutated = {name: df.copy() for name, df in fast_dataset.items()}
-    mutated["sales"].loc[mutated["sales"].index[0], "gross_amount_pkr"] = 999_999_999.0
+    mutated["sales"].loc[mutated["sales"].index[0], "gross_amount"] = 999_999_999.0
     problems = verify_tables(mutated, scale=fast_config.scale)
-    assert any("gross_amount_pkr" in p for p in problems)
+    assert any("gross_amount" in p for p in problems)
 
 
 def test_broken_inventory_identity_is_caught(
