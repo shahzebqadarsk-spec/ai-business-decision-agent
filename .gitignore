@@ -1,1 +1,19 @@
 node_modules
+
+# Environment / secrets -- never commit real credentials
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Frontend build output / TS cache
+frontend/dist/
+frontend/tsconfig.app.tsbuildinfo
+
+# Local runtime data (uploads, generated synthetic datasets)
+var/
+synthetic_data/
